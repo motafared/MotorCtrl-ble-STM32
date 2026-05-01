@@ -508,36 +508,64 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           if (write_perm_req->Attribute_Handle == (CustomContext.CustomTsm1Hdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
           {
             return_value = SVCCTL_EvtAckFlowEnable;
-            /* Allow or reject a write request from a client using aci_gatt_write_resp(...) function */
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_1_ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE */
-
+            aci_gatt_write_resp(write_perm_req->Connection_Handle,
+                                write_perm_req->Attribute_Handle,
+                                0x00, 0x00,
+                                write_perm_req->Data_Length,
+                                write_perm_req->Data);
+            Notification.Custom_Evt_Opcode = CUSTOM_STM_TSM1_WRITE_EVT;
+            Notification.DataTransfered.pPayload = write_perm_req->Data;
+            Notification.DataTransfered.Length   = write_perm_req->Data_Length;
+            Custom_STM_App_Notification(&Notification);
             /*USER CODE END CUSTOM_STM_Service_1_Char_1_ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE*/
           } /*if (write_perm_req->Attribute_Handle == (CustomContext.CustomTsm1Hdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
 
           else if (write_perm_req->Attribute_Handle == (CustomContext.CustomTsm2Hdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
           {
             return_value = SVCCTL_EvtAckFlowEnable;
-            /* Allow or reject a write request from a client using aci_gatt_write_resp(...) function */
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_2_ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE */
-
+            aci_gatt_write_resp(write_perm_req->Connection_Handle,
+                                write_perm_req->Attribute_Handle,
+                                0x00, 0x00,
+                                write_perm_req->Data_Length,
+                                write_perm_req->Data);
+            Notification.Custom_Evt_Opcode = CUSTOM_STM_TSM2_WRITE_EVT;
+            Notification.DataTransfered.pPayload = write_perm_req->Data;
+            Notification.DataTransfered.Length   = write_perm_req->Data_Length;
+            Custom_STM_App_Notification(&Notification);
             /*USER CODE END CUSTOM_STM_Service_1_Char_2_ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE*/
           } /*if (write_perm_req->Attribute_Handle == (CustomContext.CustomTsm2Hdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
 
           else if (write_perm_req->Attribute_Handle == (CustomContext.CustomCtHdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
           {
             return_value = SVCCTL_EvtAckFlowEnable;
-            /* Allow or reject a write request from a client using aci_gatt_write_resp(...) function */
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_3_ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE */
-
+            aci_gatt_write_resp(write_perm_req->Connection_Handle,
+                                write_perm_req->Attribute_Handle,
+                                0x00, 0x00,
+                                write_perm_req->Data_Length,
+                                write_perm_req->Data);
+            Notification.Custom_Evt_Opcode = CUSTOM_STM_CT_WRITE_EVT;
+            Notification.DataTransfered.pPayload = write_perm_req->Data;
+            Notification.DataTransfered.Length   = write_perm_req->Data_Length;
+            Custom_STM_App_Notification(&Notification);
             /*USER CODE END CUSTOM_STM_Service_1_Char_3_ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE*/
           } /*if (write_perm_req->Attribute_Handle == (CustomContext.CustomCtHdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
 
           else if (write_perm_req->Attribute_Handle == (CustomContext.CustomCmdHdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
           {
             return_value = SVCCTL_EvtAckFlowEnable;
-            /* Allow or reject a write request from a client using aci_gatt_write_resp(...) function */
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_4_ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE */
-
+            aci_gatt_write_resp(write_perm_req->Connection_Handle,
+                                write_perm_req->Attribute_Handle,
+                                0x00, 0x00,
+                                write_perm_req->Data_Length,
+                                write_perm_req->Data);
+            Notification.Custom_Evt_Opcode = CUSTOM_STM_CMD_WRITE_EVT;
+            Notification.DataTransfered.pPayload = write_perm_req->Data;
+            Notification.DataTransfered.Length   = write_perm_req->Data_Length;
+            Custom_STM_App_Notification(&Notification);
             /*USER CODE END CUSTOM_STM_Service_1_Char_4_ACI_GATT_WRITE_PERMIT_REQ_VSEVT_CODE*/
           } /*if (write_perm_req->Attribute_Handle == (CustomContext.CustomCmdHdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
 

@@ -84,6 +84,40 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+/* Motor 1 — TIM2 CH1 PWM, TIM1 CH1 tachometer */
+#define M1_PPR          6
+#define M1_SPEED        1200
+#define M1_Kp           0.012f
+#define M1_Ki           0.0f
+#define M1_Kd           0.0f
+#define M1_pwm_tim      htim2
+#define M1_pwm_channel  TIM_CHANNEL_1
+#define M1_ic_tim       htim1
+#define M1_ic_channel   TIM_CHANNEL_1
+
+/* Motor 2 — TIM2 CH2 PWM, TIM1 CH2 tachometer */
+#define M2_PPR          6
+#define M2_SPEED        1200
+#define M2_Kp           0.012f
+#define M2_Ki           0.0f
+#define M2_Kd           0.0f
+#define M2_pwm_tim      htim2
+#define M2_pwm_channel  TIM_CHANNEL_2
+#define M2_ic_tim       htim1
+#define M2_ic_channel   TIM_CHANNEL_2
+
+/* Cycle and PID timing — TIM16 ticks at 100 ms */
+#define CYCLE_PERIOD    (35 * 10ul)   /* 350 ticks = 35 s */
+#define PID_dt          0.1f
+
+/* Motor state machine modes */
+#define Mode_Stopped    0
+#define Mode_Running    1
+#define Mode_Continue   2
+
+/* Button debounce (ms) */
+#define DEBOUNCE_MS     50
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
