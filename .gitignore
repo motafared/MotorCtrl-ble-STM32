@@ -1,0 +1,41 @@
+# IAR build output
+EWARM/Debug/
+EWARM/Release/
+EWARM/*.dep
+EWARM/*.dni
+EWARM/*.ewd.bak
+EWARM/*.ewp.bak
+EWARM/*.eww.bak
+**/*.o
+**/*.d
+**/*.a
+**/*.map
+**/*.lst
+**/*.pbd
+
+# Build artifacts
+**/*.elf
+**/*.bin
+**/*.hex
+**/*.axf
+**/*.out
+
+# IAR session/workspace state
+EWARM/settings/
+**/*.xcl
+
+# STM32CubeIDE (if ever used alongside IAR)
+.cproject
+.project
+.settings/
+Debug/
+Release/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+*.swp
+*~
