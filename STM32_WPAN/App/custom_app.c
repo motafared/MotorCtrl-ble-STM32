@@ -572,6 +572,7 @@ static void Motor_StartAll(void)
     Motor_Start(&motor1, 15.0f);
     Motor_Start(&motor2, 15.0f);
     HAL_TIM_Base_Start_IT(&htim16);
+    HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_SET);
 }
 
 static void Motor_StopAll(void)
@@ -579,6 +580,7 @@ static void Motor_StopAll(void)
     Motor_Stop(&motor1);
     Motor_Stop(&motor2);
     HAL_TIM_Base_Stop_IT(&htim16);
+    HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_RESET);
 }
 
 static void Telemetry_SendTask(void)
@@ -653,6 +655,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     /* PID update */
     Motor_UpdatePID(&motor1, PID_dt);
     Motor_UpdatePID(&motor2, PID_dt);
+    HAL_GPIO_TogglePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin); /* heartbeat: 5 Hz blink while running */
 
     /* Schedule telemetry notification via sequencer (safe BLE context) */
     if (ble_connected)
