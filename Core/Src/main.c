@@ -49,7 +49,11 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim16;
 
 /* USER CODE BEGIN PV */
-
+/* Application-level timer handles:
+ *   htim1  — tachometer input capture  (M1 = CH1 / PA8, M2 = CH2 / PA9)
+ *   htim2  — 20 kHz PWM output          (M1 = CH1 / PA0, M2 = CH2 / PA1)
+ *   htim16 — 100 ms PID control tick
+ */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,11 +111,11 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();
+  MX_GPIO_Init();   /* START / STOP / CONTINUE buttons + blue LED */
   MX_RTC_Init();
-  MX_TIM1_Init();
-  MX_TIM2_Init();
-  MX_TIM16_Init();
+  MX_TIM1_Init();   /* tachometer input capture — M1 CH1, M2 CH2 */
+  MX_TIM2_Init();   /* 20 kHz PWM — M1 CH1 (PA0), M2 CH2 (PA1) */
+  MX_TIM16_Init();  /* 100 ms PID tick — started/stopped with motors */
   MX_RF_Init();
   /* USER CODE BEGIN 2 */
 
@@ -300,7 +304,12 @@ static void MX_TIM1_Init(void)
 {
 
   /* USER CODE BEGIN TIM1_Init 0 */
-
+  /* Tachometer input capture for both BLDC motors.
+   * Motor 1 tachometer → CH1 (PA8)
+   * Motor 2 tachometer → CH2 (PA9)
+   * Prescaler 999 → timer counts at 64 kHz.  ICFilter = 15 suppresses noise.
+   * IC interrupt started/stopped by Motor_Start() / Motor_Stop() in custom_app.c.
+   */
   /* USER CODE END TIM1_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
@@ -364,7 +373,12 @@ static void MX_TIM2_Init(void)
 {
 
   /* USER CODE BEGIN TIM2_Init 0 */
-
+  /* 20 kHz PWM output for both BLDC motors.
+   * Motor 1 PWM → CH1 (PA0),  Motor 2 PWM → CH2 (PA1)
+   * Prescaler 0, Period 3199 → 64 MHz / 3200 = 20 kHz.
+   * Active-LOW polarity (OCPolarity_LOW) to match the motor driver hardware.
+   * Duty cycle controlled by Motor_SetDuty() via __HAL_TIM_SET_COMPARE().
+   */
   /* USER CODE END TIM2_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
@@ -427,7 +441,12 @@ static void MX_TIM16_Init(void)
 {
 
   /* USER CODE BEGIN TIM16_Init 0 */
-
+  /* 100 ms PID control tick for both motors.
+   * Prescaler 6399, Period 999 → 64 MHz / 6400 / 1000 = 10 Hz = 100 ms per tick.
+   * Fires HAL_TIM_PeriodElapsedCallback() which runs Motor_UpdatePID(),
+   * increments the cycle timer, and triggers the BLE telemetry task.
+   * Timer is started by Motor_StartAll() and stopped by Motor_StopAll().
+   */
   /* USER CODE END TIM16_Init 0 */
 
   /* USER CODE BEGIN TIM16_Init 1 */
@@ -459,7 +478,15 @@ static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
-
+  /* Motor control buttons (GPIOA, active-HIGH, pull-down, rising-edge EXTI):
+   *   PA2 BTN_STOP     — stop motors immediately (any mode)
+   *   PA3 BTN_START    — start timed run (35 s by default)
+   *   PA4 BTN_CONTINUE — run while held; release stops motors
+   * Debounce handled in HAL_GPIO_EXTI_Callback() using HAL_GetTick().
+   *
+   * Status LED:
+   *   PE4 LED_BLUE — ON while motors running, blinks 5 Hz (PID tick heartbeat)
+   */
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
