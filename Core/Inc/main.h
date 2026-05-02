@@ -84,6 +84,11 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN Private defines */
 
+/* Readable aliases — CubeMX keeps htim1/htim2/htim16 internally */
+#define htim_tacho  htim1   /* tachometer input capture: M1=CH1(PA8), M2=CH2(PA9) */
+#define htim_pwm    htim2   /* 20 kHz BLDC motor PWM:   M1=CH1(PA0), M2=CH2(PA1) */
+#define htim_pid    htim16  /* 100 ms PID control tick */
+
 /* Motor 1 — TIM2 CH1 PWM, TIM1 CH1 tachometer */
 #define M1_PPR          6
 #define M1_SPEED        1200
