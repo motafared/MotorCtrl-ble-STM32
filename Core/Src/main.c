@@ -111,11 +111,11 @@ int main(void)
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
-  MX_GPIO_Init();   /* START / STOP / CONTINUE buttons + blue LED */
+  MX_GPIO_Init();
   MX_RTC_Init();
-  MX_TIM1_Init();   /* tachometer input capture — M1 CH1, M2 CH2 */
-  MX_TIM2_Init();   /* 20 kHz PWM — M1 CH1 (PA0), M2 CH2 (PA1) */
-  MX_TIM16_Init();  /* 100 ms PID tick — started/stopped with motors */
+  MX_TIM1_Init();
+  MX_TIM2_Init();
+  MX_TIM16_Init();
   MX_RF_Init();
   /* USER CODE BEGIN 2 */
 
@@ -349,7 +349,7 @@ static void MX_TIM1_Init(void)
   sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
   sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
   sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
-  sConfigIC.ICFilter = 15; /* max filter — matches Phase 1, suppresses tacho noise */
+  sConfigIC.ICFilter = 0;
   if (HAL_TIM_IC_ConfigChannel(&htim1, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
