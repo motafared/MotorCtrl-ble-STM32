@@ -478,11 +478,11 @@ static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
   /* USER CODE BEGIN MX_GPIO_Init_1 */
-  /* Motor control buttons (GPIOA, active-HIGH, pull-down, rising-edge EXTI):
-   *   PA2 BTN_STOP     — stop motors immediately (any mode)
-   *   PA3 BTN_START    — start timed run (35 s by default)
-   *   PA4 BTN_CONTINUE — run while held; release stops motors
-   * Debounce handled in HAL_GPIO_EXTI_Callback() using HAL_GetTick().
+  /* Motor control buttons (GPIOA, active-HIGH, pull-down):
+   *   PA2 BTN_STOP     — rising-edge EXTI; stop motors immediately (any mode)
+   *   PA3 BTN_START    — rising-edge EXTI; start timed run (35 s by default)
+   *   PA4 BTN_CONTINUE — both-edge EXTI; run while held, release stops motors
+   * Debounce: first-edge-wins timestamp filter in HAL_GPIO_EXTI_Callback().
    *
    * Status LED:
    *   PE4 LED_BLUE — ON while motors running, blinks 5 Hz (PID tick heartbeat)
@@ -497,11 +497,17 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_BLUE_GPIO_Port, LED_BLUE_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : BTN_STOP_Pin BTN_START_Pin BTN_CONTINUE_Pin */
-  GPIO_InitStruct.Pin = BTN_STOP_Pin|BTN_START_Pin|BTN_CONTINUE_Pin;
+  /*Configure GPIO pins : BTN_STOP_Pin BTN_START_Pin */
+  GPIO_InitStruct.Pin = BTN_STOP_Pin|BTN_START_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : BTN_CONTINUE_Pin */
+  GPIO_InitStruct.Pin = BTN_CONTINUE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(BTN_CONTINUE_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : LED_BLUE_Pin */
   GPIO_InitStruct.Pin = LED_BLUE_Pin;

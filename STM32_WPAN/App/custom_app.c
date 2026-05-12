@@ -175,17 +175,17 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
       if (pNotification->DataTransfered.Length >= 1)
       {
         uint8_t cmd = pNotification->DataTransfered.pPayload[0];
-        if (cmd == 0x01 && mode == Mode_Stopped)       /* Start timed */
+        if (cmd == CMD_START && mode == Mode_Stopped)
         {
           Motor_StartAll();
           mode = Mode_Running;
         }
-        else if (cmd == 0x02)                           /* Stop */
+        else if (cmd == CMD_STOP)
         {
           Motor_StopAll();
           mode = Mode_Stopped;
         }
-        else if (cmd == 0x03 && mode == Mode_Stopped)  /* Start continuous */
+        else if (cmd == CMD_CONTINUE && mode == Mode_Stopped)
         {
           Motor_StartAll();
           mode = Mode_Continue;
@@ -627,17 +627,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance != TIM16)
         return;
 
-    /* Continue mode: detect button release by polling GPIO */
-    if (mode == Mode_Continue)
-    {
-        if (HAL_GPIO_ReadPin(BTN_CONTINUE_GPIO_Port, BTN_CONTINUE_Pin) == GPIO_PIN_RESET)
-        {
-            Motor_StopAll();
-            mode = Mode_Stopped;
-            return;
-        }
-    }
-
     /* Timed mode: check cycle expiry */
     if (mode == Mode_Running)
     {
@@ -688,7 +677,10 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 }
 
 /* -----------------------------------------------------------------------
- * EXTI button callbacks (rising edge, run from ISR context)
+ * EXTI button callbacks (run from ISR context)
+ * Debounce: first edge wins — stamp timestamp on every edge that clears the
+ * time window so bounces are filtered regardless of whether mode check passes.
+ * BTN_CONTINUE fires on both edges; pin state distinguishes press from release.
  * ----------------------------------------------------------------------- */
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -700,29 +692,49 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
     if (GPIO_Pin == BTN_START_Pin)
     {
-        if ((now - last_start) >= DEBOUNCE_MS && mode == Mode_Stopped)
+        if ((now - last_start) >= DEBOUNCE_MS)
         {
             last_start = now;
-            Motor_StartAll();
-            mode = Mode_Running;
+            if (mode == Mode_Stopped)
+            {
+                Motor_StartAll();
+                mode = Mode_Running;
+            }
         }
     }
     else if (GPIO_Pin == BTN_STOP_Pin)
     {
-        if ((now - last_stop) >= DEBOUNCE_MS && mode != Mode_Stopped)
+        if ((now - last_stop) >= DEBOUNCE_MS)
         {
             last_stop = now;
-            Motor_StopAll();
-            mode = Mode_Stopped;
+            if (mode != Mode_Stopped)
+            {
+                Motor_StopAll();
+                mode = Mode_Stopped;
+            }
         }
     }
     else if (GPIO_Pin == BTN_CONTINUE_Pin)
     {
-        if ((now - last_continue) >= DEBOUNCE_MS && mode == Mode_Stopped)
+        if ((now - last_continue) >= DEBOUNCE_MS)
         {
             last_continue = now;
-            Motor_StartAll();
-            mode = Mode_Continue;
+            if (HAL_GPIO_ReadPin(BTN_CONTINUE_GPIO_Port, BTN_CONTINUE_Pin) == GPIO_PIN_SET)
+            {
+                if (mode == Mode_Stopped)
+                {
+                    Motor_StartAll();
+                    mode = Mode_Continue;
+                }
+            }
+            else
+            {
+                if (mode == Mode_Continue)
+                {
+                    Motor_StopAll();
+                    mode = Mode_Stopped;
+                }
+            }
         }
     }
 }

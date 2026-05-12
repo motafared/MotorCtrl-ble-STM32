@@ -51,7 +51,9 @@ typedef struct
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
-
+#define CMD_START      0x01   /* Start timed run (Mode_Running) */
+#define CMD_STOP       0x02   /* Stop motors (any mode) */
+#define CMD_CONTINUE   0x03   /* Start continuous run (Mode_Continue) */
 /* USER CODE END EC */
 
 /* External variables --------------------------------------------------------*/
