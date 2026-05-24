@@ -23,7 +23,10 @@
 #include "custom_stm.h"
 
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+/* Refresh hook implemented in custom_app.c — forward-declared here to avoid
+ * pulling custom_app.h (which would re-include this header). */
+extern void Custom_App_OnReadPermit(Custom_STM_Char_Opcode_t op);
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,6 +43,7 @@ typedef struct{
   uint16_t  CustomRm2Hdle;                  /**< RotationsM2 handle */
   uint16_t  CustomEtHdle;                  /**< ElapsedTime handle */
 /* USER CODE BEGIN Context */
+  uint16_t  CustomStatusHdle;              /**< Status (run state) handle */
   /* Place holder for Characteristic Descriptors Handle*/
 
 /* USER CODE END Context */
@@ -93,7 +97,7 @@ static CustomContext_t CustomContext;
  */
 
 /* USER CODE BEGIN PV */
-
+uint16_t SizeStatus = 1;   /* Status char value length (1 byte) */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,7 +111,26 @@ static tBleStatus Generic_STM_App_Update_Char_Ext(uint16_t ConnectionHandle, uin
 
 /* Functions Definition ------------------------------------------------------*/
 /* USER CODE BEGIN PFD */
+/**
+ * Attach a Characteristic User Description descriptor (UUID 0x2901)
+ * so generic GATT clients (nRF Connect, etc.) show friendly names.
+ */
+static void Custom_STM_AddUserDesc(uint16_t serv_hdl, uint16_t char_hdl, const char *name)
+{
+  Char_Desc_Uuid_t desc_uuid;
+  uint16_t desc_hdl;
+  uint8_t len = (uint8_t)strlen(name);
 
+  desc_uuid.Char_UUID_16 = 0x2901;
+  (void)aci_gatt_add_char_desc(serv_hdl, char_hdl,
+                               UUID_TYPE_16, &desc_uuid,
+                               len, len, (const uint8_t *)name,
+                               ATTR_PERMISSION_NONE,
+                               ATTR_ACCESS_READ_ONLY,
+                               GATT_DONT_NOTIFY_EVENTS,
+                               7, 0,
+                               &desc_hdl);
+}
 /* USER CODE END PFD */
 
 /* Private functions ----------------------------------------------------------*/
@@ -369,6 +392,26 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
             }
           }  /* if (attribute_modified->Attr_Handle == (CustomContext.CustomEtHdle + CHARACTERISTIC_DESCRIPTOR_ATTRIBUTE_OFFSET))*/
 
+          /* USER CODE BEGIN CUSTOM_STM_Status_attribute_modified */
+          else if (attribute_modified->Attr_Handle == (CustomContext.CustomStatusHdle + CHARACTERISTIC_DESCRIPTOR_ATTRIBUTE_OFFSET))
+          {
+            return_value = SVCCTL_EvtAckFlowEnable;
+            switch (attribute_modified->Attr_Data[0])
+            {
+              case (!(COMSVC_Notification)):
+                Notification.Custom_Evt_Opcode = CUSTOM_STM_STATUS_NOTIFY_DISABLED_EVT;
+                Custom_STM_App_Notification(&Notification);
+                break;
+              case COMSVC_Notification:
+                Notification.Custom_Evt_Opcode = CUSTOM_STM_STATUS_NOTIFY_ENABLED_EVT;
+                Custom_STM_App_Notification(&Notification);
+                break;
+              default:
+                break;
+            }
+          }  /* if (attribute_modified->Attr_Handle == (CustomContext.CustomStatusHdle + CHARACTERISTIC_DESCRIPTOR_ATTRIBUTE_OFFSET))*/
+          /* USER CODE END CUSTOM_STM_Status_attribute_modified */
+
           else if (attribute_modified->Attr_Handle == (CustomContext.CustomTsm1Hdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
           {
             return_value = SVCCTL_EvtAckFlowEnable;
@@ -411,7 +454,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           {
             return_value = SVCCTL_EvtAckFlowEnable;
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_1_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1 */
-
+            Custom_App_OnReadPermit(CUSTOM_STM_TSM1);
             /*USER CODE END CUSTOM_STM_Service_1_Char_1_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1*/
             aci_gatt_allow_read(read_req->Connection_Handle);
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_1_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2 */
@@ -422,7 +465,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           {
             return_value = SVCCTL_EvtAckFlowEnable;
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_2_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1 */
-
+            Custom_App_OnReadPermit(CUSTOM_STM_TSM2);
             /*USER CODE END CUSTOM_STM_Service_1_Char_2_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1*/
             aci_gatt_allow_read(read_req->Connection_Handle);
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_2_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2 */
@@ -433,7 +476,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           {
             return_value = SVCCTL_EvtAckFlowEnable;
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_3_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1 */
-
+            Custom_App_OnReadPermit(CUSTOM_STM_CT);
             /*USER CODE END CUSTOM_STM_Service_1_Char_3_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1*/
             aci_gatt_allow_read(read_req->Connection_Handle);
             /*USER CODE BEGIN CUSTOM_STM_Service_1_Char_3_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2 */
@@ -444,7 +487,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           {
             return_value = SVCCTL_EvtAckFlowEnable;
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_1_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1 */
-
+            Custom_App_OnReadPermit(CUSTOM_STM_ASM1);
             /*USER CODE END CUSTOM_STM_Service_2_Char_1_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1*/
             aci_gatt_allow_read(read_req->Connection_Handle);
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_1_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2 */
@@ -455,7 +498,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           {
             return_value = SVCCTL_EvtAckFlowEnable;
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_2_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1 */
-
+            Custom_App_OnReadPermit(CUSTOM_STM_ASM2);
             /*USER CODE END CUSTOM_STM_Service_2_Char_2_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1*/
             aci_gatt_allow_read(read_req->Connection_Handle);
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_2_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2 */
@@ -466,7 +509,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           {
             return_value = SVCCTL_EvtAckFlowEnable;
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_3_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1 */
-
+            Custom_App_OnReadPermit(CUSTOM_STM_RM1);
             /*USER CODE END CUSTOM_STM_Service_2_Char_3_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1*/
             aci_gatt_allow_read(read_req->Connection_Handle);
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_3_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2 */
@@ -477,7 +520,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           {
             return_value = SVCCTL_EvtAckFlowEnable;
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_4_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1 */
-
+            Custom_App_OnReadPermit(CUSTOM_STM_RM2);
             /*USER CODE END CUSTOM_STM_Service_2_Char_4_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1*/
             aci_gatt_allow_read(read_req->Connection_Handle);
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_4_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2 */
@@ -488,7 +531,7 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
           {
             return_value = SVCCTL_EvtAckFlowEnable;
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_5_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1 */
-
+            Custom_App_OnReadPermit(CUSTOM_STM_ET);
             /*USER CODE END CUSTOM_STM_Service_2_Char_5_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_1*/
             aci_gatt_allow_read(read_req->Connection_Handle);
             /*USER CODE BEGIN CUSTOM_STM_Service_2_Char_5_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2 */
@@ -496,7 +539,12 @@ static SVCCTL_EvtAckStatus_t Custom_STM_Event_Handler(void *Event)
             /*USER CODE END CUSTOM_STM_Service_2_Char_5_ACI_GATT_READ_PERMIT_REQ_VSEVT_CODE_2*/
           } /* if (read_req->Attribute_Handle == (CustomContext.CustomEtHdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
           /* USER CODE BEGIN EVT_BLUE_GATT_READ_PERMIT_REQ_END */
-
+          else if (read_req->Attribute_Handle == (CustomContext.CustomStatusHdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))
+          {
+            return_value = SVCCTL_EvtAckFlowEnable;
+            Custom_App_OnReadPermit(CUSTOM_STM_STATUS);
+            aci_gatt_allow_read(read_req->Connection_Handle);
+          } /* if (read_req->Attribute_Handle == (CustomContext.CustomStatusHdle + CHARACTERISTIC_VALUE_ATTRIBUTE_OFFSET))*/
           /* USER CODE END EVT_BLUE_GATT_READ_PERMIT_REQ_END */
           break;
 
@@ -662,11 +710,11 @@ void SVCCTL_InitCustomSvc(void)
    * This value doesn't take into account number of descriptors manually added
    * In case of descriptors added, please update the max_attr_record value accordingly in the next SVCCTL_InitService User Section
    */
-  max_attr_record = 9;
+ 
 
   /* USER CODE BEGIN SVCCTL_InitService1 */
   /* max_attr_record to be updated if descriptors have been added */
-
+  max_attr_record = 13;
   /* USER CODE END SVCCTL_InitService1 */
 
   uuid.Char_UUID_16 = 0x0001;
@@ -707,8 +755,7 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service1_Char1 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomCtrlHdle, CustomContext.CustomTsm1Hdle, "TargetSpeedM1");
   /* USER CODE END SVCCTL_Init_Service1_Char1 */
   /**
    *  TargetSpeedM2
@@ -733,8 +780,7 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service1_Char2 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomCtrlHdle, CustomContext.CustomTsm2Hdle, "TargetSpeedM2");
   /* USER CODE END SVCCTL_Init_Service1_Char2 */
   /**
    *  CycleTime
@@ -759,8 +805,7 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service1_Char3 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomCtrlHdle, CustomContext.CustomCtHdle, "CycleTime");
   /* USER CODE END SVCCTL_Init_Service1_Char3 */
   /**
    *  Command
@@ -785,8 +830,7 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service1_Char4 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomCtrlHdle, CustomContext.CustomCmdHdle, "Command");
   /* USER CODE END SVCCTL_Init_Service1_Char4 */
 
   /**
@@ -809,11 +853,13 @@ void SVCCTL_InitCustomSvc(void)
    * This value doesn't take into account number of descriptors manually added
    * In case of descriptors added, please update the max_attr_record value accordingly in the next SVCCTL_InitService User Section
    */
-  max_attr_record = 16;
+  
 
   /* USER CODE BEGIN SVCCTL_InitService2 */
-  /* max_attr_record to be updated if descriptors have been added */
-
+  /* max_attr_record to be updated if descriptors have been added.
+   * 21 = base for 5 notify chars (1 svc + 5 * [decl+val+CCCD+user-desc]).
+   * +4 for the manually added Status char (CubeMX caps WB services at 5). = 25 */
+  max_attr_record = 25;
   /* USER CODE END SVCCTL_InitService2 */
 
   uuid.Char_UUID_16 = 0x0010;
@@ -854,8 +900,7 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service2_Char1 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomTeleHdle, CustomContext.CustomAsm1Hdle, "ActualSpeedM1");
   /* USER CODE END SVCCTL_Init_Service2_Char1 */
   /**
    *  ActualSpeedM2
@@ -880,8 +925,7 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service2_Char2 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomTeleHdle, CustomContext.CustomAsm2Hdle, "ActualSpeedM2");
   /* USER CODE END SVCCTL_Init_Service2_Char2 */
   /**
    *  RotationsM1
@@ -906,8 +950,7 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service2_Char3 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomTeleHdle, CustomContext.CustomRm1Hdle, "RotationsM1");
   /* USER CODE END SVCCTL_Init_Service2_Char3 */
   /**
    *  RotationsM2
@@ -932,8 +975,7 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service2_Char4 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomTeleHdle, CustomContext.CustomRm2Hdle, "RotationsM2");
   /* USER CODE END SVCCTL_Init_Service2_Char4 */
   /**
    *  ElapsedTime
@@ -958,12 +1000,35 @@ void SVCCTL_InitCustomSvc(void)
   }
 
   /* USER CODE BEGIN SVCCTL_Init_Service2_Char5 */
-  /* Place holder for Characteristic Descriptors */
-
+  Custom_STM_AddUserDesc(CustomContext.CustomTeleHdle, CustomContext.CustomEtHdle, "ElapsedTime");
   /* USER CODE END SVCCTL_Init_Service2_Char5 */
 
   /* USER CODE BEGIN SVCCTL_InitCustomSvc_2 */
-
+  /**
+   *  Status (run state) — Telemetry service, UUID 0x0016, 1 byte, READ + NOTIFY.
+   *  Added manually (6th char) per ST guidance: the CubeMX GATT designer caps
+   *  STM32WB services at 5 characteristics, so extra chars are added in code via
+   *  aci_gatt_add_char() with max_attr_record bumped above (21 -> 25).
+   */
+  uuid.Char_UUID_16 = 0x0016;
+  ret = aci_gatt_add_char(CustomContext.CustomTeleHdle,
+                          UUID_TYPE_16, &uuid,
+                          SizeStatus,
+                          CHAR_PROP_READ | CHAR_PROP_NOTIFY,
+                          ATTR_PERMISSION_NONE,
+                          GATT_NOTIFY_ATTRIBUTE_WRITE | GATT_NOTIFY_WRITE_REQ_AND_WAIT_FOR_APPL_RESP | GATT_NOTIFY_READ_REQ_AND_WAIT_FOR_APPL_RESP,
+                          0x10,
+                          CHAR_VALUE_LEN_CONSTANT,
+                          &(CustomContext.CustomStatusHdle));
+  if (ret != BLE_STATUS_SUCCESS)
+  {
+    APP_DBG_MSG("  Fail   : aci_gatt_add_char command   : STATUS, error code: 0x%x \n\r", ret);
+  }
+  else
+  {
+    APP_DBG_MSG("  Success: aci_gatt_add_char command   : STATUS , handle = 0x%04x \n\r", CustomContext.CustomStatusHdle);
+  }
+  Custom_STM_AddUserDesc(CustomContext.CustomTeleHdle, CustomContext.CustomStatusHdle, "Status");
   /* USER CODE END SVCCTL_InitCustomSvc_2 */
 
   return;
@@ -1155,6 +1220,20 @@ tBleStatus Custom_STM_App_Update_Char(Custom_STM_Char_Opcode_t CharOpcode, uint8
 
       /* USER CODE END CUSTOM_STM_App_Update_Service_2_Char_5*/
       break;
+
+    /* USER CODE BEGIN CUSTOM_STM_App_Update_Char_Status */
+    case CUSTOM_STM_STATUS:
+      ret = aci_gatt_update_char_value(CustomContext.CustomTeleHdle,
+                                       CustomContext.CustomStatusHdle,
+                                       0, /* charValOffset */
+                                       SizeStatus, /* charValueLen */
+                                       (uint8_t *)  pPayload);
+      if (ret != BLE_STATUS_SUCCESS)
+      {
+        APP_DBG_MSG("  Fail   : aci_gatt_update_char_value STATUS command, result : 0x%x \n\r", ret);
+      }
+      break;
+    /* USER CODE END CUSTOM_STM_App_Update_Char_Status */
 
     default:
       break;

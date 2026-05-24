@@ -121,7 +121,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
     /* Control */
     case CUSTOM_STM_TSM1_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_TSM1_READ_EVT */
-
+      /* Not dispatched by stack — read-refresh is in custom_stm.c VSEVT_CODE_1 blocks. */
       /* USER CODE END CUSTOM_STM_TSM1_READ_EVT */
       break;
 
@@ -138,7 +138,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
 
     case CUSTOM_STM_TSM2_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_TSM2_READ_EVT */
-
+      /* Not dispatched by stack. */
       /* USER CODE END CUSTOM_STM_TSM2_READ_EVT */
       break;
 
@@ -155,7 +155,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
 
     case CUSTOM_STM_CT_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_CT_READ_EVT */
-
+      /* Not dispatched by stack. */
       /* USER CODE END CUSTOM_STM_CT_READ_EVT */
       break;
 
@@ -190,6 +190,10 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
           Motor_StartAll();
           mode = Mode_Continue;
         }
+        /* Push a fresh telemetry+status frame so the client sees the new state
+         * at once — covers the stop case where the periodic timer is halted. */
+        if (ble_connected)
+          UTIL_SEQ_SetTask(1 << CFG_TASK_MOTOR_TELE_ID, CFG_SCH_PRIO_0);
       }
       /* USER CODE END CUSTOM_STM_CMD_WRITE_EVT */
       break;
@@ -197,7 +201,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
     /* Telemetry */
     case CUSTOM_STM_ASM1_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_ASM1_READ_EVT */
-
+      /* Not dispatched by stack. */
       /* USER CODE END CUSTOM_STM_ASM1_READ_EVT */
       break;
 
@@ -215,7 +219,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
 
     case CUSTOM_STM_ASM2_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_ASM2_READ_EVT */
-
+      /* Not dispatched by stack. */
       /* USER CODE END CUSTOM_STM_ASM2_READ_EVT */
       break;
 
@@ -233,7 +237,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
 
     case CUSTOM_STM_RM1_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_RM1_READ_EVT */
-
+      /* Not dispatched by stack. */
       /* USER CODE END CUSTOM_STM_RM1_READ_EVT */
       break;
 
@@ -251,7 +255,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
 
     case CUSTOM_STM_RM2_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_RM2_READ_EVT */
-
+      /* Not dispatched by stack. */
       /* USER CODE END CUSTOM_STM_RM2_READ_EVT */
       break;
 
@@ -269,7 +273,7 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
 
     case CUSTOM_STM_ET_READ_EVT:
       /* USER CODE BEGIN CUSTOM_STM_ET_READ_EVT */
-
+      /* Not dispatched by stack. */
       /* USER CODE END CUSTOM_STM_ET_READ_EVT */
       break;
 
@@ -284,6 +288,20 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
 
       /* USER CODE END CUSTOM_STM_ET_NOTIFY_DISABLED_EVT */
       break;
+
+    /* USER CODE BEGIN CUSTOM_STM_Status_EVTS */
+    case CUSTOM_STM_STATUS_READ_EVT:
+      /* Not dispatched by stack — read-refresh is in Custom_App_OnReadPermit. */
+      break;
+
+    case CUSTOM_STM_STATUS_NOTIFY_ENABLED_EVT:
+      /* Client subscribed; current value comes via the connect-time read and the
+       * next state-change notification. */
+      break;
+
+    case CUSTOM_STM_STATUS_NOTIFY_DISABLED_EVT:
+      break;
+    /* USER CODE END CUSTOM_STM_Status_EVTS */
 
     case CUSTOM_STM_NOTIFICATION_COMPLETE_EVT:
       /* USER CODE BEGIN CUSTOM_STM_NOTIFICATION_COMPLETE_EVT */
@@ -356,7 +374,54 @@ void Custom_APP_Init(void)
 }
 
 /* USER CODE BEGIN FD */
-
+void Custom_App_OnReadPermit(Custom_STM_Char_Opcode_t op)
+{
+  uint16_t v16;
+  uint32_t v32;
+  switch (op)
+  {
+    case CUSTOM_STM_TSM1:
+      v16 = motor1.setpoint_rpm;
+      Custom_STM_App_Update_Char(CUSTOM_STM_TSM1, (uint8_t *)&v16);
+      break;
+    case CUSTOM_STM_TSM2:
+      v16 = motor2.setpoint_rpm;
+      Custom_STM_App_Update_Char(CUSTOM_STM_TSM2, (uint8_t *)&v16);
+      break;
+    case CUSTOM_STM_CT:
+      v16 = (uint16_t)(cycle_period / 10ul);
+      Custom_STM_App_Update_Char(CUSTOM_STM_CT, (uint8_t *)&v16);
+      break;
+    case CUSTOM_STM_ASM1:
+      v16 = motor1.speed_rpm;
+      Custom_STM_App_Update_Char(CUSTOM_STM_ASM1, (uint8_t *)&v16);
+      break;
+    case CUSTOM_STM_ASM2:
+      v16 = motor2.speed_rpm;
+      Custom_STM_App_Update_Char(CUSTOM_STM_ASM2, (uint8_t *)&v16);
+      break;
+    case CUSTOM_STM_RM1:
+      v32 = motor1.pulses_count;
+      Custom_STM_App_Update_Char(CUSTOM_STM_RM1, (uint8_t *)&v32);
+      break;
+    case CUSTOM_STM_RM2:
+      v32 = motor2.pulses_count;
+      Custom_STM_App_Update_Char(CUSTOM_STM_RM2, (uint8_t *)&v32);
+      break;
+    case CUSTOM_STM_ET:
+      v16 = (uint16_t)(cycle_timer / 10u);
+      Custom_STM_App_Update_Char(CUSTOM_STM_ET, (uint8_t *)&v16);
+      break;
+    case CUSTOM_STM_STATUS:
+    {
+      uint8_t st = mode;  /* 0=stopped/idle, 1=timed, 2=continuous */
+      Custom_STM_App_Update_Char(CUSTOM_STM_STATUS, &st);
+      break;
+    }
+    default:
+      break;
+  }
+}
 /* USER CODE END FD */
 
 /*************************************************************
@@ -616,6 +681,17 @@ static void Telemetry_SendTask(void)
     buf[0] = (uint8_t)(elapsed_s & 0xFF);
     buf[1] = (uint8_t)(elapsed_s >> 8);
     Custom_STM_App_Update_Char(CUSTOM_STM_ET, buf);
+
+    /* Status (1 byte) — only notify when the run state actually changed, so the
+     * client always reflects the true firmware state (button presses, timed
+     * auto-stop) without re-sending the same byte every tick. */
+    static uint8_t last_status_sent = 0xFF;
+    if (mode != last_status_sent)
+    {
+        uint8_t st = mode;
+        Custom_STM_App_Update_Char(CUSTOM_STM_STATUS, &st);
+        last_status_sent = mode;
+    }
 }
 
 /* -----------------------------------------------------------------------
@@ -690,6 +766,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     static uint32_t last_continue = 0;
     uint32_t now = HAL_GetTick();
 
+    uint8_t mode_before = mode;
+
     if (GPIO_Pin == BTN_START_Pin)
     {
         if ((now - last_start) >= DEBOUNCE_MS)
@@ -737,6 +815,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
             }
         }
     }
+
+    /* On a physical-button state change, schedule a telemetry+status frame so
+     * BLE clients track buttons too. Scheduling from ISR is the safe pattern;
+     * never call aci_* directly here. */
+    if (mode != mode_before && ble_connected)
+        UTIL_SEQ_SetTask(1 << CFG_TASK_MOTOR_TELE_ID, CFG_SCH_PRIO_0);
 }
 
 /* USER CODE END FD_LOCAL_FUNCTIONS*/

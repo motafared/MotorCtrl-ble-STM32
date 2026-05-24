@@ -93,8 +93,28 @@ void Error_Handler(void);
 #define htim_pwm    htim2   /* 20 kHz BLDC motor PWM:   M1=CH1(PA0), M2=CH2(PA1) */
 #define htim_pid    htim16  /* 100 ms PID control tick */
 
+/* ---- Build mode --------------------------------------------------------
+ * MODE_KHALED : bench testing  (PPR = 2, PWM NOT inverted, polarity HIGH)
+ * MODE_TOON   : client hardware (PPR = 6, PWM inverted,     polarity LOW)
+ * Flip MOTOR_MODE on the one line below; PPR and PWM polarity follow.
+ */
+#define MODE_KHALED     0
+#define MODE_TOON       1
+
+#define MOTOR_MODE      MODE_KHALED   /* <<< switch here */
+
+#if   MOTOR_MODE == MODE_KHALED
+  #define MOTOR_PPR       2
+  #define MOTOR_PWM_POL   TIM_OCPOLARITY_HIGH
+#elif MOTOR_MODE == MODE_TOON
+  #define MOTOR_PPR       6
+  #define MOTOR_PWM_POL   TIM_OCPOLARITY_LOW
+#else
+  #error "MOTOR_MODE must be MODE_KHALED or MODE_TOON"
+#endif
+
 /* Motor 1 — TIM2 CH1 PWM, TIM1 CH1 tachometer */
-#define M1_PPR          6
+#define M1_PPR          MOTOR_PPR
 #define M1_SPEED        1200
 #define M1_Kp           0.012f
 #define M1_Ki           0.0f
@@ -105,7 +125,7 @@ void Error_Handler(void);
 #define M1_ic_channel   TIM_CHANNEL_1
 
 /* Motor 2 — TIM2 CH2 PWM, TIM1 CH2 tachometer */
-#define M2_PPR          6
+#define M2_PPR          MOTOR_PPR
 #define M2_SPEED        1200
 #define M2_Kp           0.012f
 #define M2_Ki           0.0f

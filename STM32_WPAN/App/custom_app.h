@@ -30,7 +30,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "custom_stm.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -70,7 +70,10 @@ typedef struct
 void Custom_APP_Init(void);
 void Custom_APP_Notification(Custom_App_ConnHandle_Not_evt_t *pNotification);
 /* USER CODE BEGIN EF */
-
+/* Refresh a readable characteristic from its live firmware source.
+ * Called from custom_stm.c's read-permit handler BEFORE aci_gatt_allow_read(),
+ * so the client always reads the current truth instead of a stale cached value. */
+void Custom_App_OnReadPermit(Custom_STM_Char_Opcode_t op);
 /* USER CODE END EF */
 
 #ifdef __cplusplus

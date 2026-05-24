@@ -45,6 +45,11 @@ typedef enum
   CUSTOM_STM_RM1,
   CUSTOM_STM_RM2,
   CUSTOM_STM_ET,
+  /* USER CODE BEGIN Custom_STM_Char_Opcode_t */
+  CUSTOM_STM_STATUS,   /* run state: 0=idle/stopped, 1=timed, 2=continuous.
+                        * Manually added (6th telemetry char) — CubeMX GATT
+                        * designer caps STM32WB services at 5 chars. */
+  /* USER CODE END Custom_STM_Char_Opcode_t */
 } Custom_STM_Char_Opcode_t;
 
 typedef enum
@@ -80,6 +85,11 @@ typedef enum
   CUSTOM_STM_ET_READ_EVT,
   CUSTOM_STM_ET_NOTIFY_ENABLED_EVT,
   CUSTOM_STM_ET_NOTIFY_DISABLED_EVT,
+  /* USER CODE BEGIN Custom_STM_Status_Evts */
+  CUSTOM_STM_STATUS_READ_EVT,
+  CUSTOM_STM_STATUS_NOTIFY_ENABLED_EVT,
+  CUSTOM_STM_STATUS_NOTIFY_DISABLED_EVT,
+  /* USER CODE END Custom_STM_Status_Evts */
   CUSTOM_STM_NOTIFICATION_COMPLETE_EVT,
 
   CUSTOM_STM_BOOT_REQUEST_EVT
@@ -116,7 +126,7 @@ extern uint16_t SizeRm2;
 extern uint16_t SizeEt;
 
 /* USER CODE BEGIN EC */
-
+extern uint16_t SizeStatus;
 /* USER CODE END EC */
 
 /* External variables --------------------------------------------------------*/
