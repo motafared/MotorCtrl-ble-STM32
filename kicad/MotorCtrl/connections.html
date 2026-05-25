@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotorCtrl — Connections to the STM32 Board</title>
+<style>
+  body{margin:0;background:#f6f7f9;color:#1f2630;
+    font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:860px;margin:0 auto;padding:36px 24px 80px;}
+  h1{font-size:26px;margin:0 0 4px;}
+  h2{font-size:19px;margin:36px 0 8px;color:#1a4d80;}
+  p.sub{color:#5b6573;margin:0 0 6px;}
+  code{background:#eceff3;padding:1px 6px;border-radius:4px;font-size:.9em;
+    font-family:"SF Mono",Consolas,Menlo,monospace;}
+  .card{background:#fff;border:1px solid #dfe3e8;border-radius:10px;
+    padding:6px 18px;margin:12px 0 4px;box-shadow:0 1px 2px rgba(0,0,0,.04);}
+  pre{margin:14px 2px;font-family:"SF Mono",Consolas,Menlo,monospace;
+    font-size:13.5px;line-height:1.5;color:#243b53;overflow-x:auto;}
+  .note{color:#5b6573;font-size:14px;margin:2px 0 16px;}
+  .note b{color:#243b53;}
+  footer{margin-top:44px;color:#5b6573;font-size:13px;border-top:1px solid #dfe3e8;padding-top:16px;}
+  a{color:#1a4d80;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>MotorCtrl — Connections to the STM32 Board</h1>
+  <p class="sub">STM32WB55 carrier board (Phase 2). One connection group per diagram.
+  Pins mirror <code>Core/Inc/main.h</code>; source: <code>motorctrl.py</code> (SKiDL).</p>
+  <p class="sub">Board MCU module: <b>WeAct STM32WB55CGU6</b> (U2). Logic = 3.3 V; motors run on +12 V.</p>
+
+  <h2>1. STM32 ↔ Motors</h2>
+  <p class="sub">Two 4-wire BLDC motors on connectors J3 (M1) and J4 (M2). PWM drives the motor; the tacho returns one pulse train per revolution.</p>
+  <div class="card"><pre>
+   Motor M1  (J3, 4-wire)            STM32WB55 board (U2)
+   ┌─────────────────────┐          ┌──────────────────────────┐
+   │ +12V   (J3.2)       ├── +12V ───┤ +12V rail                │
+   │ GND    (J3.1)       ├── GND  ───┤ GND                      │
+   │ PWM    (J3.3)       ├◄──────────┤ PA0   M1_PWM             │ TIM2_CH1
+   │ Tacho  (J3.4)       ├──────────►┤ PA8   M1_TACH            │ TIM1_CH1
+   └─────────────────────┘          └──────────────────────────┘
+
+   Motor M2  (J4, 4-wire)            STM32WB55 board (U2)
+   ┌─────────────────────┐          ┌──────────────────────────┐
+   │ +12V   (J4.2)       ├── +12V ───┤ +12V rail                │
+   │ GND    (J4.1)       ├── GND  ───┤ GND                      │
+   │ PWM    (J4.3)       ├◄──────────┤ PA1   M2_PWM             │ TIM2_CH2
+   │ Tacho  (J4.4)       ├──────────►┤ PA9   M2_TACH            │ TIM1_CH2
+   └─────────────────────┘          └──────────────────────────┘
+</pre></div>
+  <p class="note">Each tacho line has a pull-up to <b>+3V3</b> on the board: <b>R1</b> (M1), <b>R2</b> (M2).
+  PWM = 20 kHz (TIM2); tacho = timer input-capture (TIM1).</p>
+
+  <h2>2. STM32 ↔ Buttons</h2>
+  <p class="sub">Three momentary push-buttons. <b>Active-HIGH</b>: the switch connects the MCU pin to <b>+3V3</b> when pressed; the MCU's internal pull-down holds the pin low when released (firmware sets <code>GPIO_PULLDOWN</code>, so no external pull-up resistor is needed).</p>
+  <div class="card"><pre>
+   Push-buttons                      STM32WB55 board (U2)
+   ┌─────────────────────┐          ┌──────────────────────────┐
+   │ START   SW1 ─[R6]───├──────────►┤ PA3   BTN_START          │ EXTI3  rising (press)
+   │ STOP    SW2 ─[R7]───├──────────►┤ PA2   BTN_STOP           │ EXTI2  rising (press)
+   │ CONT    SW3 ─[R8]───├──────────►┤ PA4   BTN_CONTINUE       │ EXTI4  both edges
+   │ (common → +3V3)     │          │   (internal pull-down ON) │
+   └─────────────────────┘          └──────────────────────────┘
+</pre></div>
+  <p class="note"><b>Idle = LOW</b> (held by the MCU internal pull-down); <b>pressed = HIGH</b> (pin tied to +3V3 through series <b>R6/R7/R8</b>).
+  Optional debounce cap <b>C7/C8/C9</b> → GND (firmware also debounces 50 ms). START/STOP fire on the <b>rising</b> (press) edge; CONTINUE fires on <b>both</b> edges — runs while held, stops on release.
+  <br><b>⚠ Changed from the earlier active-low design:</b> the button common now goes to <b>+3V3</b> (was GND) and the external pull-ups <b>R3/R4/R5 are removed</b> (replaced by the MCU's internal pull-down). The SKiDL source <code>motorctrl.py</code> must be updated to match. Source of truth: <code>Core/Src/main.c</code> → <code>MX_GPIO_Init</code> (PA2/PA3 <code>GPIO_MODE_IT_RISING</code>, PA4 <code>GPIO_MODE_IT_RISING_FALLING</code>, all <code>GPIO_PULLDOWN</code>).</p>
+
+  <h2>3. STM32 ↔ Status LED</h2>
+  <div class="card"><pre>
+   STM32WB55 board (U2)              Status LED
+   ┌──────────────────────────┐     ┌──────────────┐
+   │ PE4   LED_DRIVE ─[R9 1k]──├────►┤ D2 anode     │
+   │ GND ──────────────────────├─────┤ D2 cathode   │
+   └──────────────────────────┘     └──────────────┘
+</pre></div>
+  <p class="note"><b>PE4</b> high → LED on (motors running / heartbeat). <b>R9</b> = 1 kΩ series.</p>
+
+  <h2>4. STM32 ↔ SWD programmer</h2>
+  <p class="sub">5-pin header J5 for flashing/debug (ST-LINK).</p>
+  <div class="card"><pre>
+   SWD header (J5, 1×5)              STM32WB55 board (U2)
+   ┌─────────────────────┐          ┌──────────────────────────┐
+   │ +3V3   (J5.1)       ├── 3V3 ────┤ +3V3                     │
+   │ SWDIO  (J5.2)       ├──────────►┤ PA13  SWDIO              │
+   │ SWCLK  (J5.3)       ├──────────►┤ PA14  SWCLK              │
+   │ NRST   (J5.4)       ├──────────►┤ NRST                     │
+   │ GND    (J5.5)       ├── GND ────┤ GND                      │
+   └─────────────────────┘          └──────────────────────────┘
+</pre></div>
+
+  <h2>5. Power input</h2>
+  <p class="sub">12 V DC barrel jack → reverse-polarity Schottky → on-board regulator.</p>
+  <div class="card"><pre>
+   12 V DC jack (J1)        Board power stage                  Rails
+   ┌─────────────────┐      ┌──────────────────────────┐      ┌──────────┐
+   │ +12V   (J1.1)   ├─ D1 ─┤ Schottky → +12V rail       ├────►│ +12V     │
+   │                 │      │ AMS1117 (U1): 12V → 3.3V   ├────►│ +3V3     │
+   │ GND    (J1.2)   ├──────┤ common ground              ├────►│ GND      │
+   └─────────────────┘      └──────────────────────────┘      └──────────┘
+</pre></div>
+  <p class="note"><b>+12V</b> rail → motors (J3.2/J4.2) + decoupling. <b>+3V3</b> → U2, pull-ups, SWD.</p>
+
+  <footer>
+    Source: <code>motorctrl.py</code> (SKiDL) · pin-by-pin checklist: <code>WIRING.md</code> · this doc: <code>CONNECTIONS.md</code>
+  </footer>
+
+</div>
+</body>
+</html>
