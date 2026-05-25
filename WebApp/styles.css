@@ -1,0 +1,11 @@
+.chart-container {
+  position: relative;
+  height: 280px;
+  width: 100%;
+}
+
+button:disabled,
+input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

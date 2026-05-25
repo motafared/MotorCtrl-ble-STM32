@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name "WeAct_Modules")(type "KiCad")(uri "E:/projects/claude-hw-lib/sym/WeAct_STM32WB55.kicad_sym")(options "")(descr "WeAct custom module symbols"))
+)

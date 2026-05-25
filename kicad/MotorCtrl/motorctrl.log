@@ -1,0 +1,77 @@
+WARNING: KICAD6_SYMBOL_DIR environment variable is missing, so the default KiCad symbol libraries won't be searched. @ [E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\<frozen importlib._bootstrap_external>:728=>E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\<frozen importlib._bootstrap>:219]
+WARNING: fp-lib-table file was not found. Component footprints are not available.
+WARNING: fp-lib-table file was not found. Component footprints are not available.
+WARNING: fp-lib-table file was not found. Component footprints are not available.
+WARNING: fp-lib-table file was not found. Component footprints are not available.
+WARNING: Missing tag on Barrel_Jack instantiated at E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:75.
+WARNING: Random tag IbYFFnOEtq generated for Barrel_Jack.
+WARNING: Missing tag on C_Polarized instantiated at E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:80.
+WARNING: Random tag 6RSUQqhR5x generated for C_Polarized.
+WARNING: Missing tag on D_Schottky instantiated at E:\projects\claude-hw-lib\blocks\reverse_polarity_schottky.py:31.
+WARNING: Random tag ZRAGuW33tp generated for D_Schottky.
+WARNING: Missing tag on AMS1117-3.3 instantiated at E:\projects\claude-hw-lib\blocks\linear_3v3_supply.py:25.
+WARNING: Random tag 0QDRVNPypO generated for AMS1117-3.3.
+WARNING: Missing tag on C_Polarized instantiated at E:\projects\claude-hw-lib\blocks\linear_3v3_supply.py:26.
+WARNING: Random tag IzHpnsR8j9 generated for C_Polarized.
+WARNING: Missing tag on C_Polarized instantiated at E:\projects\claude-hw-lib\blocks\linear_3v3_supply.py:27.
+WARNING: Random tag m31bK4Qjxy generated for C_Polarized.
+WARNING: Missing tag on C instantiated at E:\projects\claude-hw-lib\blocks\linear_3v3_supply.py:28.
+WARNING: Random tag G5wIzySgw5 generated for C.
+WARNING: Missing tag on WeAct_STM32WB55 instantiated at E:\projects\claude-hw-lib\parts\weact_stm32wb55.py:29.
+WARNING: Random tag tCRklCjL5U generated for WeAct_STM32WB55.
+WARNING: Missing tag on Conn_01x04 instantiated at E:\projects\claude-hw-lib\blocks\motor_connector_4wire.py:46.
+WARNING: Random tag mI_gqjyeHw generated for Conn_01x04.
+WARNING: Missing tag on C instantiated at E:\projects\claude-hw-lib\blocks\motor_connector_4wire.py:53.
+WARNING: Random tag KNDVjo0_49 generated for C.
+WARNING: Missing tag on R instantiated at E:\projects\claude-hw-lib\blocks\motor_connector_4wire.py:58.
+WARNING: Random tag w9AhnTkdTU generated for R.
+WARNING: Missing tag on Conn_01x04 instantiated at E:\projects\claude-hw-lib\blocks\motor_connector_4wire.py:46.
+WARNING: Random tag YTasbHE8r3 generated for Conn_01x04.
+WARNING: Missing tag on C instantiated at E:\projects\claude-hw-lib\blocks\motor_connector_4wire.py:53.
+WARNING: Random tag wmOw7EVbhF generated for C.
+WARNING: Missing tag on R instantiated at E:\projects\claude-hw-lib\blocks\motor_connector_4wire.py:58.
+WARNING: Random tag rBKxVgNKCU generated for R.
+WARNING: Missing tag on SW_Push instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:45.
+WARNING: Random tag zqz_0YJxBj generated for SW_Push.
+WARNING: Missing tag on R instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:46.
+WARNING: Random tag hz1YB6xpsF generated for R.
+WARNING: Missing tag on R instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:47.
+WARNING: Random tag wGJ7zZ8riE generated for R.
+WARNING: Missing tag on C instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:48.
+WARNING: Random tag 4wXZcWd556 generated for C.
+WARNING: Missing tag on SW_Push instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:45.
+WARNING: Random tag K1AIVbIvgV generated for SW_Push.
+WARNING: Missing tag on R instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:46.
+WARNING: Random tag vq2ufk0UfH generated for R.
+WARNING: Missing tag on R instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:47.
+WARNING: Random tag 4KSNQ0LEhO generated for R.
+WARNING: Missing tag on C instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:48.
+WARNING: Random tag TrljGIjlSF generated for C.
+WARNING: Missing tag on SW_Push instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:45.
+WARNING: Random tag 47JqsURxKa generated for SW_Push.
+WARNING: Missing tag on R instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:46.
+WARNING: Random tag G6osIhWdQH generated for R.
+WARNING: Missing tag on R instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:47.
+WARNING: Random tag Um6ZQIETKh generated for R.
+WARNING: Missing tag on C instantiated at E:\projects\claude-hw-lib\blocks\debounced_button.py:48.
+WARNING: Random tag Tc50JxMz74 generated for C.
+WARNING: Missing tag on R instantiated at E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:134.
+WARNING: Random tag VWSgrJW_xr generated for R.
+WARNING: Missing tag on LED instantiated at E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:136.
+WARNING: Random tag vIFZQ7CQap generated for LED.
+WARNING: Missing tag on Conn_01x05 instantiated at E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:147.
+WARNING: Random tag hnM2JSZGcm generated for Conn_01x05.
+WARNING: Missing tag on  instantiated at E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\<frozen importlib._bootstrap>:219.
+INFO: 63 warnings found while generating netlist.
+INFO: 0 errors found while generating netlist.
+
+INFO:   [auto_stub] power: +12V_RAW(2), +12V(8), GND(19), +3V3(10) @ [E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:180]
+INFO:   [auto_stub] fanout>=5:  @ [E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:180]
+INFO:   [auto_stub_large_groups] Group of 35 parts, 12 chain nets, splitting... @ [E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:180]
+INFO:   [auto_stub_large_groups] Stubbed 2 nets @ [E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:180]
+INFO:   [selective_routing] Stubbed 9 complex nets after placement @ [E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:180]
+WARNING: Routing failed on attempt 1/5, expanding area by 1.5x:  @ [E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:180]
+INFO: Schematic written to .\motorctrl.kicad_sch @ [E:\projects\STM32 bldc motor\Phase2\kicad\MotorCtrl\motorctrl.py:180]
+INFO: 64 warnings found while generating schematic.
+INFO: 0 errors found while generating schematic.
+
