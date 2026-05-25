@@ -1,0 +1,278 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MotorCtrl — Phase 2 Delivery (BLE Wireless Control)</title>
+<style>
+body{font-family:-apple-system,Segoe UI,sans-serif;max-width:900px;margin:30px auto;padding:0 20px;color:#222;line-height:1.55}
+h1,h2,h3{border-bottom:1px solid #ddd;padding-bottom:4px;margin-top:32px}
+h1{margin-top:0}
+table{border-collapse:collapse;margin:12px 0;width:100%}
+th,td{border:1px solid #ccc;padding:6px 12px;text-align:left;vertical-align:top}
+th{background:#f5f5f5}
+pre{background:#f6f8fa;padding:12px;border-radius:6px;overflow:auto;font-family:Consolas,monospace;font-size:13px;line-height:1.4}
+code{background:#f6f8fa;padding:2px 4px;border-radius:3px;font-family:Consolas,monospace;font-size:90%}
+pre code{background:none;padding:0}
+hr{border:none;border-top:1px solid #ddd;margin:24px 0}
+blockquote{margin:14px 0;padding:8px 14px;border-left:4px solid #e0a800;background:#fff8e6;color:#5a4a00}
+.muted{color:#666;font-size:13px}
+</style></head><body>
+
+<h1>MotorCtrl — Phase 2 Delivery (BLE Wireless Control)</h1>
+<p><strong>Client:</strong> Toon<br>
+<strong>Scope:</strong> STM32 firmware + Web Bluetooth dashboard that add wireless control and live telemetry to the Phase 1 dual-BLDC motor controller.<br>
+<strong>Hardware:</strong> WeAct STM32WB55 Core Board (STM32WB55CGU6), two 12 V 4-wire BLDC motors with tachometers, three push-buttons, status LED.</p>
+
+<hr />
+
+<h2>1. What this is</h2>
+<p>Phase 1 was a dual-BLDC speed controller on an STM32F103: two motors, PID speed control, three run modes (timed / continuous / stopped), driven by on-board buttons. <strong>Phase 2 moves it to the STM32WB55</strong> (same STM32 ecosystem, plus built-in Bluetooth LE 5.0) and adds:</p>
+<ul>
+<li><strong>BLE control</strong> — set target speeds and cycle time, and start/stop the motors, from a phone or laptop with no app install (a web page over Web Bluetooth).</li>
+<li><strong>BLE telemetry</strong> — live actual speed, rotation counts, elapsed time, and run state pushed to the dashboard as they change.</li>
+<li>The original <strong>push-button control still works</strong> in parallel with BLE, and the dashboard tracks button presses live.</li>
+</ul>
+<p><strong>In scope for Phase 2:</strong></p>
+<ul>
+<li>STM32WB55 firmware: motor PID port, BLE GATT services (control + telemetry), button + timed-cycle logic, status LED.</li>
+<li>Web Bluetooth dashboard (single-page, no install).</li>
+<li>This documentation.</li>
+</ul>
+<p><strong>Out of scope / deferred (see §10):</strong></p>
+<ul>
+<li>Custom PCB build (a KiCad design exists under <code>kicad/</code>, not yet fabricated).</li>
+<li>Multi-board control (up to 4 boards in one browser tab) — architecture is ready, UI is single-board.</li>
+<li>Persisting settings across power cycles (flash storage).</li>
+</ul>
+
+<hr />
+
+<h2>2. Hardware bill of materials</h2>
+<table>
+<thead><tr><th>Item</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>WeAct STM32WB55 Core Board</td><td>STM32WB55CGU6, 64 MHz, BLE 5.0, supplied by client</td></tr>
+<tr><td>2× 12 V 4-wire BLDC motors</td><td>PWM + tachometer (1 pulse/rev sensed; see §4 for PPR)</td></tr>
+<tr><td>12 V DC supply</td><td>Motor rail; logic is 3.3 V from the board regulator</td></tr>
+<tr><td>3× momentary push-buttons</td><td>START / STOP / CONTINUE — see §3.2 wiring (active-HIGH)</td></tr>
+<tr><td>1× LED + ~1 kΩ resistor</td><td>Status indicator on PE4</td></tr>
+<tr><td>ST-LINK (or on-board)</td><td>Flashing / debug over SWD</td></tr>
+<tr><td>Phone or PC with Chrome/Edge</td><td>To run the Web Bluetooth dashboard (§7)</td></tr>
+</tbody>
+</table>
+<p>A detailed pin-by-pin wiring sheet and a styled connection diagram live in <code>kicad/MotorCtrl/WIRING.md</code> and <code>kicad/MotorCtrl/connections.html</code>.</p>
+
+<hr />
+
+<h2>3. Hardware connections</h2>
+<p>All control logic is 3.3 V. The motors run on +12 V; share a common ground between the 12 V supply and the board.</p>
+
+<h3>3.1 Pin map (STM32WB55, 64 MHz)</h3>
+<table>
+<thead><tr><th>Signal</th><th>STM32 Pin</th><th>Peripheral</th><th>Notes</th></tr></thead>
+<tbody>
+<tr><td>Motor 1 PWM</td><td>PA0</td><td>TIM2_CH1</td><td>20 kHz PWM</td></tr>
+<tr><td>Motor 2 PWM</td><td>PA1</td><td>TIM2_CH2</td><td>20 kHz PWM</td></tr>
+<tr><td>Motor 1 tacho</td><td>PA8</td><td>TIM1_CH1</td><td>input capture</td></tr>
+<tr><td>Motor 2 tacho</td><td>PA9</td><td>TIM1_CH2</td><td>input capture</td></tr>
+<tr><td>Button STOP</td><td>PA2</td><td>EXTI2</td><td>active-HIGH, internal pull-down</td></tr>
+<tr><td>Button START</td><td>PA3</td><td>EXTI3</td><td>active-HIGH, internal pull-down</td></tr>
+<tr><td>Button CONTINUE</td><td>PA4</td><td>EXTI4</td><td>active-HIGH, internal pull-down</td></tr>
+<tr><td>Status LED (blue)</td><td>PE4</td><td>GPIO out</td><td>ON running, 5 Hz heartbeat</td></tr>
+<tr><td>SWD debug</td><td>PA13 / PA14</td><td>SWDIO / SWCLK</td><td>flashing</td></tr>
+</tbody>
+</table>
+<p>Timer setup: TIM2 prescaler 0 / period 3199 → 20 kHz PWM at 64 MHz · TIM1 prescaler 999 → tacho input capture · TIM16 prescaler 6399 / period 999 → 100 ms PID + telemetry tick.</p>
+
+<h3>3.2 Push-buttons (active-HIGH, internal pull-down)</h3>
+<p>The buttons are wired <strong>active-HIGH</strong>: pressing a button connects the MCU pin to <strong>+3V3</strong>. The MCU's <strong>internal pull-down</strong> holds the pin LOW when released, so <strong>no external pull resistor is required</strong>.</p>
+<pre><code>   Push-buttons                      STM32WB55 board
+   ┌─────────────────────┐          ┌──────────────────────────┐
+   │ START   SW1 ────────├─────────►┤ PA3   BTN_START          │ EXTI3  rising (press)
+   │ STOP    SW2 ────────├─────────►┤ PA2   BTN_STOP           │ EXTI2  rising (press)
+   │ CONT    SW3 ────────├─────────►┤ PA4   BTN_CONTINUE       │ EXTI4  both edges
+   │ (common → +3V3)     │          │   (internal pull-down ON) │
+   └─────────────────────┘          └──────────────────────────┘
+</code></pre>
+<ul>
+<li><strong>Idle = LOW</strong>, <strong>pressed = HIGH</strong>.</li>
+<li>START / STOP act on the <strong>rising edge</strong> (the press).</li>
+<li>CONTINUE uses <strong>both edges</strong>: rising = start (runs while held), falling = release = stop.</li>
+<li>Firmware debounces 50 ms in software; an optional series resistor + small cap to GND is fine for ESD but not electrically required.</li>
+</ul>
+<blockquote>⚠ This differs from the older active-low note in some early hardware drafts. The firmware is the source of truth (<code>Core/Src/main.c</code> → <code>MX_GPIO_Init</code>, <code>GPIO_PULLDOWN</code>). The KiCad/SKiDL source (<code>kicad/MotorCtrl/motorctrl.py</code>) must match: button common to <strong>+3V3</strong>, external pull-ups removed.</blockquote>
+
+<h3>3.3 Motors</h3>
+<pre><code>   Motor M1 (4-wire)                 STM32WB55 board
+   +12V ───────────── +12 V rail
+   GND  ───────────── GND (common with board GND)
+   PWM  ◄──────────── PA0  (TIM2_CH1)
+   Tacho ──────────►  PA8  (TIM1_CH1)
+
+   Motor M2 (4-wire)
+   PWM  ◄──────────── PA1  (TIM2_CH2)
+   Tacho ──────────►  PA9  (TIM1_CH2)
+</code></pre>
+<p>Each tacho line typically needs a pull-up to +3V3. The PWM output idles at the inactive level until a motor is started (see §9 troubleshooting on bench behaviour with no motor connected).</p>
+
+<hr />
+
+<h2>4. Build modes (Khaled vs Toon)</h2>
+<p>A single switch in <code>Core/Inc/main.h</code> selects between the bench-test setup and the client hardware, because they differ in tachometer pulses-per-revolution and PWM polarity:</p>
+<pre><code>#define MOTOR_MODE   MODE_KHALED   /* &lt;&lt;&lt; switch here: MODE_KHALED or MODE_TOON */</code></pre>
+<table>
+<thead><tr><th>Mode</th><th><code>MOTOR_PPR</code></th><th>PWM polarity</th><th>Use</th></tr></thead>
+<tbody>
+<tr><td><code>MODE_KHALED</code></td><td>2</td><td><code>TIM_OCPOLARITY_HIGH</code> (not inverted)</td><td>bench testing</td></tr>
+<tr><td><code>MODE_TOON</code></td><td>6</td><td><code>TIM_OCPOLARITY_LOW</code> (inverted)</td><td>client hardware</td></tr>
+</tbody>
+</table>
+<p><code>M1_PPR</code> / <code>M2_PPR</code> follow <code>MOTOR_PPR</code>. PWM polarity is re-applied in the <code>USER CODE BEGIN TIM2_Init 2</code> block of <code>Core/Src/main.c</code> so it survives CubeMX regeneration. <strong>Flip the one <code>MOTOR_MODE</code> line and rebuild</strong> to switch targets — nothing else changes. Default ships as <code>MODE_KHALED</code>.</p>
+<p>Other defaults (<code>main.h</code>): target speed 1200 RPM per motor, cycle time 35 s (timed mode), PID <code>Kp = 0.012</code>, <code>Ki = 0</code>, <code>Kd = 0</code>, 100 ms control tick.</p>
+
+<hr />
+
+<h2>5. Firmware install</h2>
+<p>The STM32WB55 has <strong>two cores</strong>: the application runs on the CM4; the BLE stack runs on a CM0+ co-processor and is flashed <strong>separately</strong>. You must have the BLE stack in place once before the application's Bluetooth will work.</p>
+
+<h3>5.1 Flash the BLE co-processor stack (one-time, STM32CubeProgrammer)</h3>
+<p>Binaries come from the <strong>STM32CubeWB</strong> package: <code>STM32Cube_FW_WB_Vx.x.x\Projects\STM32WB_Copro_Wireless_Binaries\STM32WB5x\</code>.</p>
+<ol>
+<li>Connect via ST-LINK; open <strong>STM32CubeProgrammer</strong>.</li>
+<li>Flash <strong>FUS</strong> <code>stm32wb5x_FUS_fw.bin</code> at <strong><code>0x080EC000</code></strong> — skip if a recent FUS (≥ 1.2.0) is already present.</li>
+<li>Flash the <strong>BLE Full stack</strong> <code>stm32wb5x_BLE_Stack_full_fw.bin</code> at <strong><code>0x080C0000</code></strong> (this project uses <code>BLE_STACK=FULL</code>).</li>
+<li>Verify in the <strong>Wireless</strong> tab — it shows the installed FUS and BLE versions.</li>
+</ol>
+<p>(If the stack is already installed and verified, skip to 5.2.)</p>
+
+<h3>5.2 Build and flash the application (STM32CubeIDE)</h3>
+<p>This project is <strong>STM32CubeIDE only</strong> (ignore the <code>EWARM/</code> folder).</p>
+<ol>
+<li>Open <strong>STM32CubeIDE</strong> → <strong>File → Open Projects from File System</strong> → select the <code>Phase2/</code> project folder.</li>
+<li>Confirm <code>MOTOR_MODE</code> in <code>main.h</code> (§4) is set for the board you're flashing.</li>
+<li><strong>Project → Build All</strong> — should complete with <strong>0 errors</strong>.</li>
+<li><strong>Run → Run As → STM32 C/C++ Application</strong> to flash the CM4 application at <code>0x08000000</code> and start it.</li>
+</ol>
+
+<h3>5.3 Verify it's alive</h3>
+<ul>
+<li>The <strong>blue LED (PE4)</strong> is OFF when stopped. Press <strong>START</strong> → motors run and the LED blinks ~5 Hz (the PID-tick heartbeat). Press <strong>STOP</strong> → LED off.</li>
+<li>From a phone/PC, the board advertises as <strong><code>MotorCtrl</code></strong> and is visible to a BLE scanner (nRF Connect) or the dashboard (§7).</li>
+</ul>
+
+<hr />
+
+<h2>6. BLE GATT reference</h2>
+<ul>
+<li><strong>Advertised name:</strong> <code>MotorCtrl</code></li>
+<li><strong>All multi-byte values are little-endian.</strong></li>
+<li>Two services: <strong>Control</strong> (write settings + commands) and <strong>Telemetry</strong> (read + notify live values).</li>
+</ul>
+
+<h3>6.1 Control service — UUID <code>0x0001</code></h3>
+<table>
+<thead><tr><th>Characteristic</th><th>UUID</th><th>Type</th><th>Properties</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>TSM1</td><td><code>0x0002</code></td><td>uint16</td><td>Read / Write</td><td>Target speed motor 1 (RPM)</td></tr>
+<tr><td>TSM2</td><td><code>0x0003</code></td><td>uint16</td><td>Read / Write</td><td>Target speed motor 2 (RPM)</td></tr>
+<tr><td>CT</td><td><code>0x0004</code></td><td>uint16</td><td>Read / Write</td><td>Cycle time (seconds, timed mode)</td></tr>
+<tr><td>CMD</td><td><code>0x0005</code></td><td>uint8</td><td>Write</td><td>Command: <code>0x01</code> start timed · <code>0x02</code> stop · <code>0x03</code> start continuous</td></tr>
+</tbody>
+</table>
+
+<h3>6.2 Telemetry service — UUID <code>0x0010</code></h3>
+<table>
+<thead><tr><th>Characteristic</th><th>UUID</th><th>Type</th><th>Properties</th><th>Meaning</th></tr></thead>
+<tbody>
+<tr><td>ASM1</td><td><code>0x0011</code></td><td>uint16</td><td>Read / Notify</td><td>Actual speed motor 1 (RPM)</td></tr>
+<tr><td>ASM2</td><td><code>0x0012</code></td><td>uint16</td><td>Read / Notify</td><td>Actual speed motor 2 (RPM)</td></tr>
+<tr><td>RM1</td><td><code>0x0013</code></td><td>uint32</td><td>Read / Notify</td><td>Cumulative rotations motor 1</td></tr>
+<tr><td>RM2</td><td><code>0x0014</code></td><td>uint32</td><td>Read / Notify</td><td>Cumulative rotations motor 2</td></tr>
+<tr><td>ET</td><td><code>0x0015</code></td><td>uint16</td><td>Read / Notify</td><td>Elapsed time (seconds)</td></tr>
+<tr><td>STATUS</td><td><code>0x0016</code></td><td>uint8</td><td>Read / Notify</td><td>Run state: <code>0</code> idle · <code>1</code> timed · <code>2</code> continuous</td></tr>
+</tbody>
+</table>
+
+<h3>6.3 Behaviour notes</h3>
+<ul>
+<li><strong>Reads return live values.</strong> A read of any characteristic refreshes it from the firmware's current state before answering (not a stale cache), so a client that connects mid-run sees the true values immediately.</li>
+<li><strong>STATUS is the source of truth for run state.</strong> The firmware notifies STATUS on <strong>every</strong> transition — BLE command, timed auto-stop, <em>and</em> physical button presses — so a dashboard always reflects what the board is actually doing.</li>
+<li>Telemetry notifications are emitted every 100 ms while running, from a safe BLE task context (not from an interrupt).</li>
+</ul>
+
+<hr />
+
+<h2>7. Web Bluetooth dashboard</h2>
+<p>A single-page dashboard (in the <code>WebApp/</code> folder) that connects to the board over BLE — <strong>no install</strong>.</p>
+
+<h3>7.1 Browser support</h3>
+<ul>
+<li><strong>Desktop / Android:</strong> Google Chrome, Edge, or Brave (any Chromium with Web Bluetooth).</li>
+<li><strong>iPhone / iPad:</strong> the <strong>Bluefy</strong> browser (free, App Store) — Safari does not support Web Bluetooth.</li>
+<li>Web Bluetooth requires a <strong>secure context</strong>: serve over <code>https://</code> (e.g. GitHub Pages) or <code>http://localhost</code>. Opening the file directly (<code>file://</code>) will not work.</li>
+</ul>
+
+<h3>7.2 Run it locally</h3>
+<pre><code>cd WebApp
+python -m http.server 8000
+# open http://localhost:8000 in Chrome</code></pre>
+
+<h3>7.3 Using it</h3>
+<ol>
+<li>Click <strong>Connect</strong> and pick <strong>MotorCtrl</strong> from the chooser.</li>
+<li>The dashboard hydrates from the board: target speeds, cycle time, live RPM, rotation counts, elapsed time, and run state.</li>
+<li>Set <strong>Target</strong> speed per motor and the <strong>Cycle</strong> time, then <strong>Start Timed</strong>, <strong>Start Continuous</strong>, or <strong>Stop</strong>.</li>
+<li>The <strong>Live Speed</strong> chart shows actual vs target RPM over a 60 s rolling window.</li>
+<li>Settings are <strong>locked while running</strong> — stop first to change them.</li>
+<li>The state chip and lock track the board live, including physical-button presses and the automatic stop at the end of a timed run.</li>
+</ol>
+<blockquote><strong>After flashing new firmware, hard-reload the page</strong> (Ctrl+Shift+R). Browsers cache the dashboard's scripts; a stale cache can keep telemetry working while new features silently don't.</blockquote>
+
+<hr />
+
+<h2>8. Operation summary</h2>
+<table>
+<thead><tr><th>Action</th><th>Button</th><th>BLE command</th><th>Result</th></tr></thead>
+<tbody>
+<tr><td>Start timed run</td><td>START (PA3)</td><td>CMD <code>0x01</code></td><td>Both motors run to target speed; auto-stop after the cycle time (default 35 s).</td></tr>
+<tr><td>Stop</td><td>STOP (PA2)</td><td>CMD <code>0x02</code></td><td>Motors stop immediately, any mode.</td></tr>
+<tr><td>Start continuous</td><td>CONTINUE (PA4), held</td><td>CMD <code>0x03</code></td><td>Motors run; <strong>button mode stops on release</strong>.</td></tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Speed control</strong> is closed-loop PID using the tachometer; target defaults to 1200 RPM and is adjustable live over BLE.</li>
+<li><strong>Rotations</strong> accumulate while running and are reported live and at cycle end.</li>
+<li>The <strong>blue LED</strong> is ON (blinking 5 Hz) while running, OFF when stopped.</li>
+</ul>
+
+<hr />
+
+<h2>9. Troubleshooting</h2>
+<table>
+<thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+<tbody>
+<tr><td>Dashboard can't find the board</td><td>BLE stack not flashed, or board not advertising</td><td>Verify CPU2 stack in CubeProgrammer <strong>Wireless</strong> tab (§5.1); confirm <code>MotorCtrl</code> shows in a BLE scanner</td></tr>
+<tr><td>"GATT Server is disconnected. Cannot retrieve services" (intermittent)</td><td>Web Bluetooth + WB connection race</td><td>The dashboard retries automatically; if persistent, forget the device in OS Bluetooth and reconnect</td></tr>
+<tr><td>Connected, telemetry works, but run-state/buttons don't update the UI</td><td>Browser serving a cached old dashboard</td><td><strong>Hard-reload</strong> the page (Ctrl+Shift+R), or DevTools → Network → "Disable cache"</td></tr>
+<tr><td>No PWM on the analyser with no motor connected</td><td>Open-loop PID winds duty to 100% (no feedback) → pin sits constant HIGH</td><td>Expected on the bench; connect a motor for closed-loop, or temporarily zero the PID gains / force a fixed duty</td></tr>
+<tr><td>Motor doesn't reach/track speed</td><td>Wrong <code>MOTOR_MODE</code> PPR, or tacho not wired</td><td>Confirm <code>MODE_KHALED</code> (PPR 2) vs <code>MODE_TOON</code> (PPR 6) matches the motor; check tacho pull-up and wiring</td></tr>
+<tr><td>Button does nothing / triggers inverted</td><td>Button wired active-low instead of active-HIGH</td><td>Wire button common to <strong>+3V3</strong> (§3.2); firmware uses internal pull-down</td></tr>
+<tr><td>Settings won't change in the dashboard</td><td>Motors are running (settings locked)</td><td>Press <strong>Stop</strong> first, then edit</td></tr>
+<tr><td>Build fails after editing BLE chars in CubeMX</td><td>CubeMX caps STM32WB services at 5 characteristics</td><td>The 6th char (STATUS) is added in code, not the <code>.ioc</code>; see §10</td></tr>
+</tbody>
+</table>
+
+<hr />
+
+<h2>10. Production notes &amp; deferred items</h2>
+<ul>
+<li><strong>STM32WB CubeMX 5-characteristic limit.</strong> The CubeMX GATT designer caps each STM32WB service at 5 characteristics. The 6th telemetry characteristic (<strong>STATUS</strong>) is therefore added <strong>manually in code</strong> (ST's recommended workaround: <code>aci_gatt_add_char()</code> + increased <code>max_attr_record</code>). Because it lives partly outside CubeMX user-code regions, <strong>re-running CubeMX "Generate Code" will wipe parts of it</strong> — re-apply from the firmware history if you regenerate, or freeze the <code>.ioc</code>.</li>
+<li><strong>Multi-board dashboard.</strong> The web app's BLE layer is one-instance-per-device and event-driven, ready for the "up to 4 boards in one tab" requirement; only the UI is currently single-board.</li>
+<li><strong>Persistent settings.</strong> Target speeds / cycle time reset to defaults on power cycle. A future revision could store them in flash.</li>
+<li><strong>Custom PCB.</strong> A KiCad design exists under <code>kicad/MotorCtrl/</code> (SKiDL source <code>motorctrl.py</code>). It must be brought in line with the firmware before fabrication — notably the <strong>active-HIGH button wiring</strong> (§3.2).</li>
+<li><strong>Watchdog / fault handling.</strong> No IWDG is enabled; consider one for unattended operation.</li>
+</ul>
+
+<hr />
+
+<p class="muted">Document version: Phase 2 — 2026-05-25</p>
+
+</body></html>
