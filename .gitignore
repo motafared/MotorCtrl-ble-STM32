@@ -39,3 +39,18 @@ desktop.ini
 # Editor
 *.swp
 *~
+
+# --- Monorepo-wide ---
+# Eclipse / CubeIDE workspace metadata (not part of the project)
+.metadata/
+# Claude local config
+.claude/
+# KiCad local state & backups (keep the project files, drop the noise)
+**/.history/
+**/*-backups/
+**/*.zip
+**/*.kicad_prl
+**/fp-info-cache/
+**/*.kicad_sch-bak
+# Node (WebApp, if dependencies are ever added)
+**/node_modules/
