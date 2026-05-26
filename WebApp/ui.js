@@ -65,6 +65,14 @@ export function bindUI(board) {
     chart.update('none');
   });
 
+  // Mobile browsers background the tab on app-switch and can leave the chart
+  // canvas sized to a stale/zero dimension, so it redraws tiny on return. The
+  // container's CSS size is unchanged, so no resize fires to fix it — force one
+  // (deferred a frame so layout has settled) whenever the page becomes visible.
+  const refreshChart = () => requestAnimationFrame(() => { chart.resize(); chart.update('none'); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshChart(); });
+  window.addEventListener('pageshow', refreshChart);
+
   // ---- Log export / clear (buttons live inside <summary>; stop the click from
   //      toggling the <details> open/closed). Export saves the FULL history,
   //      not just the ~50 lines visible on screen. ----
