@@ -84,6 +84,18 @@ static uint16_t cycle_timer;
 static uint8_t  mode = Mode_Stopped;
 static uint32_t cycle_period = CYCLE_PERIOD;
 static uint8_t  ble_connected = 0;
+
+/* Distinguishes the two ways Mode_Continue can be entered, because they have
+ * different stop semantics:
+ *   1 = physical CONTINUE button (PA4 held) -> momentary: the 100 ms tick polls
+ *       PA4 and stops when it reads LOW (button released).
+ *   0 = web CMD_CONTINUE -> latched: PA4 is irrelevant, runs until a STOP
+ *       command (or the physical STOP button).
+ * Edge-based release detection proved unreliable (a bouncing transition lets the
+ * ISR sample a transient HIGH, misclassify the release as a press, then the
+ * 50 ms lockout swallows the settling-LOW edge). Level polling reads the settled
+ * level every tick and self-corrects, so it can't get stuck. */
+static volatile uint8_t continue_held = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -184,11 +196,13 @@ void Custom_STM_App_Notification(Custom_STM_App_Notification_evt_t *pNotificatio
         {
           Motor_StopAll();
           mode = Mode_Stopped;
+          continue_held = 0;
         }
         else if (cmd == CMD_CONTINUE && mode == Mode_Stopped)
         {
           Motor_StartAll();
           mode = Mode_Continue;
+          continue_held = 0;  /* web Continue is latched; PA4 must not stop it */
         }
         /* Push a fresh telemetry+status frame so the client sees the new state
          * at once — covers the stop case where the periodic timer is halted. */
@@ -717,6 +731,38 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
         }
     }
 
+    /* Button-held Continue: stop when PA4 settles LOW (button released). We poll
+     * the settled level instead of trusting an EXTI edge — see continue_held.
+     * Consensus debounce: require 2 consecutive LOW ticks (~200 ms) so a single
+     * mis-sampled tick during a transition can't false-trigger. */
+    {
+        static uint8_t low_ticks = 0;
+        if (mode == Mode_Continue && continue_held)
+        {
+            if (HAL_GPIO_ReadPin(BTN_CONTINUE_GPIO_Port, BTN_CONTINUE_Pin) == GPIO_PIN_RESET)
+            {
+                if (++low_ticks >= 2)
+                {
+                    Motor_StopAll();
+                    mode = Mode_Stopped;
+                    continue_held = 0;
+                    low_ticks = 0;
+                    if (ble_connected)
+                        UTIL_SEQ_SetTask(1 << CFG_TASK_MOTOR_TELE_ID, CFG_SCH_PRIO_0);
+                    return;
+                }
+            }
+            else
+            {
+                low_ticks = 0;  /* still held high — reset the consensus counter */
+            }
+        }
+        else
+        {
+            low_ticks = 0;  /* not a button-held Continue — keep the counter clean */
+        }
+    }
+
     /* PID update */
     Motor_UpdatePID(&motor1, PID_dt);
     Motor_UpdatePID(&motor2, PID_dt);
@@ -754,9 +800,9 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim)
 
 /* -----------------------------------------------------------------------
  * EXTI button callbacks (run from ISR context)
- * Debounce: first edge wins — stamp timestamp on every edge that clears the
- * time window so bounces are filtered regardless of whether mode check passes.
- * BTN_CONTINUE fires on both edges; pin state distinguishes press from release.
+ * START/STOP are rising-edge, time-window debounced (first edge wins).
+ * CONTINUE is press-to-start here; its RELEASE is handled by level polling in
+ * HAL_TIM_PeriodElapsedCallback (see continue_held) rather than a falling edge.
  * ----------------------------------------------------------------------- */
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
@@ -789,29 +835,27 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
             {
                 Motor_StopAll();
                 mode = Mode_Stopped;
+                continue_held = 0;
             }
         }
     }
     else if (GPIO_Pin == BTN_CONTINUE_Pin)
     {
+        /* Only the PRESS is handled here: a rising edge with the pin actually
+         * HIGH starts Continue and marks it button-held. The RELEASE is detected
+         * by polling the settled level in the tick (continue_held), which avoids
+         * the bounce-misread + lockout failure of edge-based release detection.
+         * Bounce on press is harmless: the mode==Stopped guard makes every edge
+         * after the first a no-op. */
         if ((now - last_continue) >= DEBOUNCE_MS)
         {
             last_continue = now;
-            if (HAL_GPIO_ReadPin(BTN_CONTINUE_GPIO_Port, BTN_CONTINUE_Pin) == GPIO_PIN_SET)
+            if (mode == Mode_Stopped &&
+                HAL_GPIO_ReadPin(BTN_CONTINUE_GPIO_Port, BTN_CONTINUE_Pin) == GPIO_PIN_SET)
             {
-                if (mode == Mode_Stopped)
-                {
-                    Motor_StartAll();
-                    mode = Mode_Continue;
-                }
-            }
-            else
-            {
-                if (mode == Mode_Continue)
-                {
-                    Motor_StopAll();
-                    mode = Mode_Stopped;
-                }
+                Motor_StartAll();
+                mode = Mode_Continue;
+                continue_held = 1;
             }
         }
     }

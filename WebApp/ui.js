@@ -21,6 +21,8 @@ export function bindUI(board) {
     chartPause: $('chart-pause'),
     chartClear: $('chart-clear'),
     log: $('log'),
+    logExport: $('log-export'),
+    logClear: $('log-clear'),
   };
 
   const chart = makeChart($('chart'));
@@ -61,6 +63,16 @@ export function bindUI(board) {
   els.chartClear.addEventListener('click', () => {
     for (const ds of chart.data.datasets) ds.data = [];
     chart.update('none');
+  });
+
+  // ---- Log export / clear (buttons live inside <summary>; stop the click from
+  //      toggling the <details> open/closed). Export saves the FULL history,
+  //      not just the ~50 lines visible on screen. ----
+  els.logExport.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); exportLog(); });
+  els.logClear.addEventListener('click', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    logHistory.length = 0;
+    els.log.textContent = '';
   });
 
   function err(e) { logLine(els.log, `ERROR: ${e.message || e}`); }
@@ -152,11 +164,35 @@ function setStatus(el, kind, detail) {
   }
 }
 
+// Full log history (chronological, oldest first) — survives the on-screen
+// 50-line cap so Export can save everything captured during a debug session.
+const logHistory = [];
+const LOG_HISTORY_MAX = 20000;
+
 function logLine(el, msg) {
-  const t = new Date().toLocaleTimeString();
-  el.textContent = `[${t}] ${msg}\n` + el.textContent;
+  const d = new Date();
+  const t = `${d.toLocaleTimeString()}.${String(d.getMilliseconds()).padStart(3, '0')}`;
+  const line = `[${t}] ${msg}`;
+  logHistory.push(line);
+  if (logHistory.length > LOG_HISTORY_MAX) logHistory.shift();
+  // On-screen: newest on top, capped so the panel stays light.
+  el.textContent = `${line}\n` + el.textContent;
   const lines = el.textContent.split('\n');
   if (lines.length > 50) el.textContent = lines.slice(0, 50).join('\n');
+}
+
+function exportLog() {
+  const text = logHistory.join('\n') + '\n';
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `motorctrl-log-${stamp}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 function fmtTime(sec) {

@@ -110,8 +110,14 @@
 
   <!-- Log -->
   <section class="rounded-xl bg-slate-800 border border-slate-700 shadow">
-    <details>
-      <summary class="cursor-pointer px-4 py-2 text-sm font-medium select-none">Log</summary>
+    <details open>
+      <summary class="cursor-pointer px-4 py-2 text-sm font-medium select-none flex items-center justify-between">
+        <span>Log</span>
+        <span class="flex gap-2">
+          <button id="log-export" class="px-3 py-1 text-xs rounded bg-slate-700 hover:bg-slate-600">Export</button>
+          <button id="log-clear" class="px-3 py-1 text-xs rounded bg-slate-700 hover:bg-slate-600">Clear</button>
+        </span>
+      </summary>
       <pre id="log" class="px-4 pb-3 text-xs text-slate-400 font-mono whitespace-pre-wrap max-h-48 overflow-auto"></pre>
     </details>
   </section>

@@ -485,7 +485,9 @@ static void MX_GPIO_Init(void)
   /* Motor control buttons (GPIOA, active-HIGH, pull-down):
    *   PA2 BTN_STOP     — rising-edge EXTI; stop motors immediately (any mode)
    *   PA3 BTN_START    — rising-edge EXTI; start timed run (35 s by default)
-   *   PA4 BTN_CONTINUE — both-edge EXTI; run while held, release stops motors
+   *   PA4 BTN_CONTINUE — rising-edge EXTI; press starts continuous run. Release
+   *                      is detected by polling PA4 in the 100 ms tick (see
+   *                      continue_held), NOT by a falling edge.
    * Debounce: first-edge-wins timestamp filter in HAL_GPIO_EXTI_Callback().
    *
    * Status LED:
@@ -509,7 +511,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : BTN_CONTINUE_Pin */
   GPIO_InitStruct.Pin = BTN_CONTINUE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(BTN_CONTINUE_GPIO_Port, &GPIO_InitStruct);
 
