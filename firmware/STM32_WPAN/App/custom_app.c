@@ -717,18 +717,20 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance != TIM16)
         return;
 
-    /* Timed mode: check cycle expiry */
-    if (mode == Mode_Running)
-    {
+    /* Elapsed run-time (ET on the dashboard) counts in BOTH running modes.
+     * Clamp at uint16 max so a long web-latched Continue run reads "maxed" instead
+     * of wrapping ET back to 0 (cycle_timer is 100 ms ticks => ~109 min cap). */
+    if ((mode == Mode_Running || mode == Mode_Continue) && cycle_timer < 0xFFFF)
         cycle_timer++;
-        if (cycle_timer >= cycle_period)
-        {
-            Motor_StopAll();
-            mode = Mode_Stopped;
-            if (ble_connected)
-                UTIL_SEQ_SetTask(1 << CFG_TASK_MOTOR_TELE_ID, CFG_SCH_PRIO_0);
-            return;
-        }
+
+    /* Only the timed mode has a cycle limit that auto-stops. */
+    if (mode == Mode_Running && cycle_timer >= cycle_period)
+    {
+        Motor_StopAll();
+        mode = Mode_Stopped;
+        if (ble_connected)
+            UTIL_SEQ_SetTask(1 << CFG_TASK_MOTOR_TELE_ID, CFG_SCH_PRIO_0);
+        return;
     }
 
     /* Button-held Continue: stop when PA4 settles LOW (button released). We poll
