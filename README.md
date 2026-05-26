@@ -5,6 +5,10 @@ Wireless control and live telemetry for a **dual 12 V BLDC motor controller**, b
 **Web Bluetooth dashboard** — drive the motors and watch live data from a phone or laptop, with
 no app install. The original push-button control still works in parallel.
 
+> 🌐 **Live dashboard:** **https://motafared.github.io/MotorCtrl-ble-STM32/** — open in
+> Chrome / Edge on desktop or Android (no install). Needs Bluetooth on; Android also needs
+> Location enabled for BLE scanning.
+>
 > 📄 **Full delivery document:** [`docs/phase2_delivery.md`](docs/phase2_delivery.md)
 > ([styled HTML](docs/phase2_delivery.html)) — scope, BOM, wiring, flashing, GATT reference,
 > dashboard usage, troubleshooting.
@@ -22,7 +26,7 @@ Phase2-Project/
 ## At a glance
 
 - **Two BLDC motors**, closed-loop PID speed control (100 ms tick), tachometer feedback.
-- **Three run modes:** Timed run (default 35 s) · Continuous (run while held) · Stopped.
+- **Three run modes:** Timed run (default 35 s) · Continuous (CONTINUE button: run while held; app command: latched until Stop) · Stopped.
 - **Live telemetry:** actual speed, cumulative rotations, elapsed time, and run state.
 - **Buttons + BLE in parallel** — the dashboard tracks physical button presses live.
 
@@ -81,6 +85,10 @@ This project is **STM32CubeIDE only**.
 Defaults: target 1200 RPM/motor, 35 s cycle, PID `Kp = 0.012`.
 
 ## Run the dashboard
+
+**Hosted (no install):** open **https://motafared.github.io/MotorCtrl-ble-STM32/** in Chrome / Edge.
+
+Or serve it locally:
 
 ```bash
 cd WebApp
