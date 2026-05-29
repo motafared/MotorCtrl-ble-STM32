@@ -145,13 +145,13 @@ export class Board extends EventTarget {
     const key = motor === 1 ? 'tsm1' : 'tsm2';
     await this.chars[key].writeValueWithResponse(u16LE(rpm));
     this.values[key] = rpm;
-    this._emit('log', `Set ${key.toUpperCase()} = ${rpm}`);
+    this._emit('log', `Set M${motor} target = ${rpm} RPM`);
   }
 
   async setCycleTime(seconds) {
     await this.chars.ct.writeValueWithResponse(u16LE(seconds));
     this.values.ct = seconds;
-    this._emit('log', `Set CT = ${seconds}s`);
+    this._emit('log', `Set cycle time = ${seconds} s`);
   }
 
   async sendCommand(cmd) {
