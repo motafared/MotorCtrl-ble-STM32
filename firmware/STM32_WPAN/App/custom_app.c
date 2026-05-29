@@ -376,9 +376,9 @@ void Custom_APP_Init(void)
 {
   /* USER CODE BEGIN CUSTOM_APP_Init */
   Motor_Init(&motor1, &M1_pwm_tim, M1_pwm_channel, &M1_ic_tim, M1_ic_channel,
-             M1_Kp, M1_Ki, M1_Kd, M1_PPR);
+             M1_Kp, M1_Ki, M1_Kd, M1_PPR, M1_MIN_DUTY);
   Motor_Init(&motor2, &M2_pwm_tim, M2_pwm_channel, &M2_ic_tim, M2_ic_channel,
-             M2_Kp, M2_Ki, M2_Kd, M2_PPR);
+             M2_Kp, M2_Ki, M2_Kd, M2_PPR, M2_MIN_DUTY);
   Motor_SetTargetSpeed(&motor1, M1_SPEED);
   Motor_SetTargetSpeed(&motor2, M2_SPEED);
 

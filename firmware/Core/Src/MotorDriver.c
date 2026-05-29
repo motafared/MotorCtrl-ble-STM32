@@ -10,7 +10,7 @@ void Motor_Init(Motor_t *motor,
                 TIM_HandleTypeDef *pwm_tim, uint32_t pwm_channel,
                 TIM_HandleTypeDef *ic_tim,  uint32_t ic_channel,
                 float kp, float ki, float kd,
-                uint32_t ppr)
+                uint32_t ppr, float min_duty)
 {
     motor->moving       = 0;
     motor->pwm_tim      = pwm_tim;
@@ -18,6 +18,7 @@ void Motor_Init(Motor_t *motor,
     motor->ic_tim       = ic_tim;
     motor->ic_channel   = ic_channel;
     motor->ppr          = ppr;
+    motor->min_duty     = min_duty;
 
     motor->last_capture = 0;
     motor->period_ticks = 0;
@@ -25,6 +26,7 @@ void Motor_Init(Motor_t *motor,
     motor->speed_rpm    = 0;
     motor->setpoint_rpm = 0;
     motor->duty         = 0;
+    motor->stale_ticks  = 0;
 
     motor->pid.Kp         = kp;
     motor->pid.Ki         = ki;
@@ -41,6 +43,7 @@ void Motor_Start(Motor_t *motor, float duty)
     motor->moving           = 0;
     motor->pulses_count     = 0;
     motor->speed_rpm        = 0;
+    motor->stale_ticks      = 0;
     motor->pid.integral     = 0;
     motor->pid.prev_error   = 0;
     Motor_SetDuty(motor, duty);
@@ -56,6 +59,8 @@ void Motor_Stop(Motor_t *motor)
 
 void Motor_SetDuty(Motor_t *motor, float duty)
 {
+	 if (duty <0)    duty = 0;
+    if (duty > MOTOR_MAX_DUTY) duty = MOTOR_MAX_DUTY;   /* debug: keep PWM below full scale */
     motor->duty = duty;
     uint32_t arr = motor->pwm_tim->Instance->ARR;
     uint32_t ccr = (uint32_t)((duty / 100.0f) * arr);
@@ -92,7 +97,12 @@ void Motor_HandleICInterrupt(Motor_t *motor)
 
 void Motor_UpdatePID(Motor_t *motor, float dt_sec)
 {
-    if (motor->moving == 0)
+    /* Hold the last measured speed across ticks that had no pulse; only declare
+     * 0 after SPEED_TIMEOUT_TICKS consecutive empty ticks (real stall/stop).
+     * This stops the telemetry from dropping to 0 between pulses at low RPM. */
+    if (motor->moving)
+        motor->stale_ticks = 0;
+    else if (++motor->stale_ticks >= SPEED_TIMEOUT_TICKS)
         motor->speed_rpm = 0;
 
     float error = (float)motor->setpoint_rpm - (float)motor->speed_rpm;
@@ -105,8 +115,8 @@ void Motor_UpdatePID(Motor_t *motor, float dt_sec)
                  + motor->pid.Ki * motor->pid.integral
                  + motor->pid.Kd * derivative;
 
-    if (motor->duty <= 20.0f)  motor->duty = 20.0f;
-    if (motor->duty > 100.0f)  motor->duty = 100.0f;
+    if (motor->duty <  motor->min_duty)  motor->duty = motor->min_duty;
+    if (motor->duty > MOTOR_MAX_DUTY)    motor->duty = MOTOR_MAX_DUTY;
 
     Motor_SetDuty(motor, motor->duty);
     motor->pid.prev_error = error;
