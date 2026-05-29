@@ -45,10 +45,24 @@ export function bindUI(board) {
     }
   });
 
-  // ---- Settings writes ----
-  els.tsm1Set.addEventListener('click', () => board.setTargetSpeed(1, intOr0(els.tsm1In.value)).catch(err));
-  els.tsm2Set.addEventListener('click', () => board.setTargetSpeed(2, intOr0(els.tsm2In.value)).catch(err));
-  els.ctSet.addEventListener('click',   () => board.setCycleTime(intOr0(els.ctIn.value)).catch(err));
+  // ---- Settings writes (flash the button on success/failure; the board layer
+  //      already logs the write itself, e.g. "Set TSM1 = 500"). ----
+  els.tsm1Set.addEventListener('click', () =>
+    doSet(els.tsm1Set, () => board.setTargetSpeed(1, intOr0(els.tsm1In.value))));
+  els.tsm2Set.addEventListener('click', () =>
+    doSet(els.tsm2Set, () => board.setTargetSpeed(2, intOr0(els.tsm2In.value))));
+  els.ctSet.addEventListener('click', () =>
+    doSet(els.ctSet, () => board.setCycleTime(intOr0(els.ctIn.value))));
+
+  async function doSet(btn, action) {
+    try {
+      await action();
+      flashBtn(btn, true);
+    } catch (e) {
+      flashBtn(btn, false);
+      err(e);
+    }
+  }
 
   // ---- Commands ----
   els.btnStartTimed.addEventListener('click', () => board.sendCommand(0x01).catch(err));
@@ -62,6 +76,7 @@ export function bindUI(board) {
   });
   els.chartClear.addEventListener('click', () => {
     for (const ds of chart.data.datasets) ds.data = [];
+    chart._t0 = null;   // restart the count-up axis at 0s
     chart.update('none');
   });
 
@@ -214,6 +229,20 @@ function intOr0(v) {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+// Brief outline flash to acknowledge a Set press: green on success, red on
+// failure. Uses a ring (outline) so it never shifts layout. Re-pressing while
+// still flashing resets the timer cleanly.
+function flashBtn(btn, ok) {
+  const ring = ok ? 'ring-emerald-400' : 'ring-rose-400';
+  if (btn._flashTimer) clearTimeout(btn._flashTimer);
+  btn.classList.remove('ring-emerald-400', 'ring-rose-400');
+  btn.classList.add('ring-2', ring);
+  btn._flashTimer = setTimeout(() => {
+    btn.classList.remove('ring-2', ring);
+    btn._flashTimer = null;
+  }, 700);
+}
+
 function makeChart(canvas) {
   return new Chart(canvas, {
     type: 'line',
@@ -230,7 +259,21 @@ function makeChart(canvas) {
       maintainAspectRatio: false,
       animation: false,
       scales: {
-        x: { type: 'linear', ticks: { color: '#94a3b8', callback: (v) => relSec(v) }, grid: { color: '#334155' } },
+        x: {
+          type: 'linear',
+          ticks: {
+            color: '#94a3b8',
+            // Count-up elapsed seconds from the first sample (fixed anchor in
+            // chart._t0), so labels rise 0s,10s,… and don't slide against "now".
+            // The 60s window still scrolls; the numbers just keep climbing.
+            callback: function (v) {
+              const t0 = this.chart._t0;
+              if (t0 == null) return '';
+              return `${Math.max(0, Math.round((v - t0) / 1000))}s`;
+            },
+          },
+          grid: { color: '#334155' },
+        },
         y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'RPM', color: '#94a3b8' } },
       },
       plugins: { legend: { labels: { color: '#cbd5e1' } } },
@@ -238,12 +281,8 @@ function makeChart(canvas) {
   });
 }
 
-function relSec(tsMs) {
-  const d = (tsMs - Date.now()) / 1000;
-  return `${d.toFixed(0)}s`;
-}
-
 function pushPoint(chart, idx, ts, val) {
+  if (chart._t0 == null) chart._t0 = ts;   // anchor the count-up axis at first sample
   chart.data.datasets[idx].data.push({ x: ts, y: val });
 }
 
