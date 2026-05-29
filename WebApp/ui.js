@@ -248,10 +248,10 @@ function makeChart(canvas) {
     type: 'line',
     data: {
       datasets: [
-        { label: 'Actual M1', data: [], borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0, tension: 0.2 },
-        { label: 'Target M1', data: [], borderColor: '#38bdf8', borderWidth: 1, borderDash: [4, 4], pointRadius: 0 },
-        { label: 'Actual M2', data: [], borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0, tension: 0.2 },
-        { label: 'Target M2', data: [], borderColor: '#f59e0b', borderWidth: 1, borderDash: [4, 4], pointRadius: 0 },
+        { label: 'Actual M1', yAxisID: 'y1', data: [], borderColor: '#38bdf8', borderWidth: 2, pointRadius: 0, tension: 0.2 },
+        { label: 'Target M1', yAxisID: 'y1', data: [], borderColor: '#38bdf8', borderWidth: 1, borderDash: [4, 4], pointRadius: 0 },
+        { label: 'Actual M2', yAxisID: 'y2', data: [], borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0, tension: 0.2 },
+        { label: 'Target M2', yAxisID: 'y2', data: [], borderColor: '#f59e0b', borderWidth: 1, borderDash: [4, 4], pointRadius: 0 },
       ],
     },
     options: {
@@ -274,7 +274,21 @@ function makeChart(canvas) {
           },
           grid: { color: '#334155' },
         },
-        y: { beginAtZero: true, ticks: { color: '#94a3b8' }, grid: { color: '#334155' }, title: { display: true, text: 'RPM', color: '#94a3b8' } },
+        // Dual Y-axis, one per motor, each in its motor's colour. They scale
+        // independently — to lock them to a shared scale, give both the same
+        // `max` (e.g. max: 3000).
+        y1: {
+          type: 'linear', position: 'left', beginAtZero: true,
+          ticks: { color: '#38bdf8' },
+          grid: { color: '#334155' },
+          title: { display: true, text: 'M1 RPM', color: '#38bdf8' },
+        },
+        y2: {
+          type: 'linear', position: 'right', beginAtZero: true,
+          ticks: { color: '#f59e0b' },
+          grid: { drawOnChartArea: false }, // avoid double gridlines over y1
+          title: { display: true, text: 'M2 RPM', color: '#f59e0b' },
+        },
       },
       plugins: { legend: { labels: { color: '#cbd5e1' } } },
     },
