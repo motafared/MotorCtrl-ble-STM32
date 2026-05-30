@@ -147,6 +147,11 @@ export function bindUI(board) {
       pushPoint(chart, 1, now, board.values.tsm1);
       pushPoint(chart, 3, now, board.values.tsm2);
       trimChart(chart, now - CHART_WINDOW_MS);
+      // Pin the time axis to a constant-width window (newest at the right) so
+      // the curve scrolls at the same speed from the very first sample, instead
+      // of starting zoomed-in (fast) while the axis auto-grows to full width.
+      chart.options.scales.x.min = now - CHART_WINDOW_MS;
+      chart.options.scales.x.max = now;
       chart.update('none');
     }
   });
@@ -269,7 +274,8 @@ function makeChart(canvas) {
             callback: function (v) {
               const t0 = this.chart._t0;
               if (t0 == null) return '';
-              return `${Math.max(0, Math.round((v - t0) / 1000))}s`;
+              const s = Math.round((v - t0) / 1000);
+              return s < 0 ? '' : `${s}s`;   // blank ticks before the first sample
             },
           },
           grid: { color: '#334155' },
