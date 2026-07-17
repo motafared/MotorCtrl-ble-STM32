@@ -121,9 +121,14 @@ export class Board extends EventTarget {
     // Subscribe to run-state notifications — firmware is the source of truth,
     // so this corrects the UI on timed auto-stop and physical button presses.
     this.chars.status.addEventListener('characteristicvaluechanged', (ev) => {
-      this.state = statusToState(ev.target.value);
-      this._emit('state', this.state);
-      this._emit('log', `Firmware state → ${this.state}`);
+      // The heartbeat's readValue() also fires this listener, so log only real
+      // state CHANGES — otherwise every 3 s poll spams "state → idle". The
+      // 'state' event still fires every time to keep the UI reconciled.
+      const st = statusToState(ev.target.value);
+      const changed = st !== this.state;
+      this.state = st;
+      this._emit('state', st);
+      if (changed) this._emit('log', `Firmware state → ${st}`);
     });
     await this.chars.status.startNotifications();
     this._startHeartbeat();
