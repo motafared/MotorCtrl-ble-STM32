@@ -77,6 +77,8 @@ export function bindUI(board) {
   els.chartClear.addEventListener('click', () => {
     for (const ds of chart.data.datasets) ds.data = [];
     chart._t0 = null;   // restart the count-up axis at 0s
+    chart.options.scales.x.min = 0;
+    chart.options.scales.x.max = CHART_WINDOW_MS / 1000;
     chart.update('none');
   });
 
@@ -146,12 +148,14 @@ export function bindUI(board) {
       // Push target lines as flat trace so they extend with time.
       pushPoint(chart, 1, now, board.values.tsm1);
       pushPoint(chart, 3, now, board.values.tsm2);
-      trimChart(chart, now - CHART_WINDOW_MS);
-      // Pin the time axis to a constant-width window (newest at the right) so
-      // the curve scrolls at the same speed from the very first sample, instead
-      // of starting zoomed-in (fast) while the axis auto-grows to full width.
-      chart.options.scales.x.min = now - CHART_WINDOW_MS;
-      chart.options.scales.x.max = now;
+      // Constant-width window in elapsed seconds: fixed 0–60s until the first
+      // minute fills (steady scroll speed from the very first sample), then it
+      // slides with newest data at the right.
+      const winS = CHART_WINDOW_MS / 1000;
+      const elapsed = (now - chart._t0) / 1000;
+      trimChart(chart, elapsed - winS);
+      chart.options.scales.x.min = Math.max(0, elapsed - winS);
+      chart.options.scales.x.max = Math.max(winS, elapsed);
       chart.update('none');
     }
   });
@@ -268,18 +272,17 @@ function makeChart(canvas) {
       animation: false,
       scales: {
         x: {
+          // X values are elapsed seconds since the first sample (anchored in
+          // chart._t0 by pushPoint), NOT epoch ms — so Chart.js picks round
+          // ticks (0s, 10s, 20s…). With epoch values it chose positions that
+          // were "nice" in absolute time but arbitrary as elapsed (8s, 18s…).
           type: 'linear',
+          min: 0,
+          max: CHART_WINDOW_MS / 1000,
           ticks: {
             color: '#94a3b8',
-            // Count-up elapsed seconds from the first sample (fixed anchor in
-            // chart._t0), so labels rise 0s,10s,… and don't slide against "now".
-            // The 60s window still scrolls; the numbers just keep climbing.
-            callback: function (v) {
-              const t0 = this.chart._t0;
-              if (t0 == null) return '';
-              const s = Math.round((v - t0) / 1000);
-              return s < 0 ? '' : `${s}s`;   // blank ticks before the first sample
-            },
+            includeBounds: false,   // no stray tick at the scrolling window edge
+            callback: (v) => `${Math.round(v)}s`,
           },
           grid: { color: '#334155' },
         },
@@ -306,18 +309,18 @@ function makeChart(canvas) {
 
 function pushPoint(chart, idx, ts, val) {
   if (chart._t0 == null) chart._t0 = ts;   // anchor the count-up axis at first sample
-  chart.data.datasets[idx].data.push({ x: ts, y: val });
+  chart.data.datasets[idx].data.push({ x: (ts - chart._t0) / 1000, y: val });
 }
 
-function trimChart(chart, minTs) {
+function trimChart(chart, minX) {
   for (const ds of chart.data.datasets) {
-    while (ds.data.length && ds.data[0].x < minTs) ds.data.shift();
+    while (ds.data.length && ds.data[0].x < minX) ds.data.shift();
   }
 }
 
 function setTargetLines(chart, t1, t2) {
-  const now = Date.now();
-  chart.data.datasets[1].data = [{ x: now, y: t1 }];
-  chart.data.datasets[3].data = [{ x: now, y: t2 }];
+  const x = chart._t0 == null ? 0 : (Date.now() - chart._t0) / 1000;
+  chart.data.datasets[1].data = [{ x, y: t1 }];
+  chart.data.datasets[3].data = [{ x, y: t2 }];
   chart.update('none');
 }
