@@ -104,12 +104,12 @@ export function bindUI(board) {
   board.addEventListener('connected', (ev) => {
     setStatus(els.status, 'connected', ev.detail);
     els.btnConnect.textContent = 'Disconnect';
-    applyState(els, board.state);
+    applyState(els, board.state, true);
   });
   board.addEventListener('disconnected', () => {
     setStatus(els.status, 'disconnected');
     els.btnConnect.textContent = 'Connect';
-    applyState(els, 'idle');
+    applyState(els, 'idle', false);
   });
   board.addEventListener('hydrated', (ev) => {
     const v = ev.detail;
@@ -123,7 +123,7 @@ export function bindUI(board) {
     els.et.textContent   = fmtTime(v.et);
     setTargetLines(chart, v.tsm1, v.tsm2);
   });
-  board.addEventListener('state', (ev) => applyState(els, ev.detail));
+  board.addEventListener('state', (ev) => applyState(els, ev.detail, board.connected));
   board.addEventListener('log', (ev) => logLine(els.log, ev.detail));
 
   board.addEventListener('telemetry', (ev) => {
@@ -156,11 +156,11 @@ export function bindUI(board) {
     }
   });
 
-  applyState(els, 'idle');
+  applyState(els, 'idle', false);
   setStatus(els.status, 'disconnected');
 }
 
-function applyState(els, state) {
+function applyState(els, state, connected) {
   const running = state !== 'idle';
   const label = state === 'idle' ? 'Idle'
               : state === 'timed' ? 'Running (Timed)'
@@ -176,7 +176,10 @@ function applyState(els, state) {
     el.disabled = running;
     el.title = lockTip;
   }
-  els.btnStop.disabled = !running;
+  // Stop must be available whenever the board is connected — never gate it on the
+  // reported run-state. A dropped Status notification could otherwise leave the
+  // motor running with Stop greyed out (the firmware is the only other way to stop).
+  els.btnStop.disabled = !connected;
 }
 
 function setStatus(el, kind, detail) {

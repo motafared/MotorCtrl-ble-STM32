@@ -126,6 +126,7 @@ export class Board extends EventTarget {
       this._emit('log', `Firmware state → ${this.state}`);
     });
     await this.chars.status.startNotifications();
+    this._startHeartbeat();
 
     this._emit('log', 'Connected.');
     this._emit('connected', this.device.name || 'MotorCtrl');
@@ -161,6 +162,33 @@ export class Board extends EventTarget {
     // leave the UI showing a state the board isn't in).
     await this.chars.cmd.writeValueWithResponse(new Uint8Array([cmd]));
     this._emit('log', `CMD 0x${cmd.toString(16).padStart(2, '0')} sent`);
+    // Self-heal: the firmware only notifies Status on a state CHANGE and never
+    // resends a dropped notification, so re-read it shortly after the command
+    // to reconcile the UI if that one notification was lost over the air.
+    setTimeout(() => this._refreshState().catch(() => {}), 400);
+  }
+
+  // Re-read the Status characteristic and re-sync the UI run-state. Used by the
+  // post-command reread and the periodic heartbeat to recover from lost Status
+  // notifications (common over flaky links / iOS Web Bluetooth bridges).
+  async _refreshState() {
+    if (!this.connected || !this.chars.status) return;
+    const st = statusToState(await this.chars.status.readValue());
+    const changed = st !== this.state;
+    this.state = st;
+    this._emit('state', st);
+    if (changed) this._emit('log', `Firmware state ⟳ ${st}`);
+  }
+
+  _startHeartbeat() {
+    this._stopHeartbeat();
+    // Poll run-state while connected so a dropped Status notification can't leave
+    // the UI permanently out of sync with the board.
+    this._hb = setInterval(() => this._refreshState().catch(() => {}), 3000);
+  }
+
+  _stopHeartbeat() {
+    if (this._hb) { clearInterval(this._hb); this._hb = null; }
   }
 
   disconnect() {
@@ -176,6 +204,7 @@ export class Board extends EventTarget {
       this._emit('log', 'Link dropped during connect — retrying…');
       return;
     }
+    this._stopHeartbeat();
     this.state = STATE.IDLE;
     this._emit('disconnected', null);
     this._emit('log', 'Disconnected.');
