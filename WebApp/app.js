@@ -5,7 +5,7 @@ import { bindUI, VERSION as UI_VERSION } from './ui.js';
 // here, ble.js, ui.js, and data-version on <html> in index.html.
 // The check below proves the browser loaded one coherent build: if any file
 // came from a stale cache, the header badge turns red instead of showing v#.
-const VERSION = '1.5.0';
+const VERSION = '1.6.0';
 
 {
   const el = document.getElementById('app-version');

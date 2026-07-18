@@ -1,6 +1,6 @@
 // DOM wiring + chart for a single Board.
 
-export const VERSION = '1.5.0';  // bump with every deploy, same value in all 4 files
+export const VERSION = '1.6.0';  // bump with every deploy, same value in all 4 files
 
 const CHART_WINDOW_MS = 60_000;
 
@@ -29,6 +29,8 @@ export function bindUI(board) {
     btnStop:       $('btn-stop'),
     btnExportCsv:  $('btn-export-csv'),
     csvFormat:     $('csv-format'),
+    autoExportWrap:   $('auto-export-wrap'),
+    autoExportToggle: $('auto-export-toggle'),
     chartPause: $('chart-pause'),
     chartClear: $('chart-clear'),
     log: $('log'),
@@ -71,6 +73,7 @@ export function bindUI(board) {
     logLine(els.log, `Cycle recorded: ${recorder.samples.length} samples (${seconds} s) — ready to export`);
     els.btnExportCsv.disabled = false;
     els.btnExportCsv.title = '';
+    if (autoExportDir) autoExportCsv(lastCycle, resolveCsvFormat(els.csvFormat.value));
   }
 
   function handleCycleTransition(newState) {
@@ -142,6 +145,51 @@ export function bindUI(board) {
   els.csvFormat.addEventListener('change', () => {
     localStorage.setItem(CSV_FORMAT_KEY, els.csvFormat.value);
   });
+
+  // ---- Auto-export (desktop Chrome/Edge only — File System Access API).
+  // Android/iOS and other browsers lack showDirectoryPicker, so the control
+  // stays hidden there and only the manual Export CSV button is available.
+  // Not persisted across reloads: the folder handle/permission doesn't
+  // survive a reload anyway, so the toggle always starts unchecked. ----
+  let autoExportDir = null;
+  if ('showDirectoryPicker' in window) {
+    els.autoExportWrap.classList.remove('hidden');
+    els.autoExportWrap.classList.add('inline-flex');
+  }
+  els.autoExportToggle.addEventListener('change', async () => {
+    if (els.autoExportToggle.checked) {
+      try {
+        autoExportDir = await window.showDirectoryPicker({ mode: 'readwrite' });
+        logLine(els.log, `Auto-export folder selected: ${autoExportDir.name}`);
+      } catch (e) {
+        els.autoExportToggle.checked = false;
+        autoExportDir = null;
+        if (e.name !== 'AbortError') err(e);   // AbortError = user cancelled the picker
+      }
+    } else {
+      autoExportDir = null;
+      logLine(els.log, 'Auto-export disabled.');
+    }
+  });
+
+  async function autoExportCsv(cycle, format) {
+    if (!autoExportDir) return;
+    const name = `${sanitizeFilenamePart(cycle.boardName)}_${fmtDateYMD(cycle.startDate)}_${fmtTimeHMSCompact(cycle.startDate)}.csv`;
+    try {
+      const fileHandle = await autoExportDir.getFileHandle(name, { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(buildCsv(cycle, format));
+      await writable.close();
+      logLine(els.log, `Auto-exported: ${name}`);
+    } catch (e) {
+      // Folder permission can be revoked externally (moved/deleted, OS prompt
+      // declined) — disable auto-export rather than fail silently on every
+      // future cycle; the manual Export CSV button is unaffected.
+      logLine(els.log, `Auto-export failed, disabling: ${e.message || e}`);
+      autoExportDir = null;
+      els.autoExportToggle.checked = false;
+    }
+  }
 
   // ---- Chart controls ----
   els.chartPause.addEventListener('click', () => {

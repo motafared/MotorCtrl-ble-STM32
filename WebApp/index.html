@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-version="1.5.0">
+<html lang="en" data-version="1.6.0">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -107,6 +107,13 @@
         <option value="comma">1,5  ·  ; delimiter</option>
         <option value="dot">1.5  ·  , delimiter</option>
       </select>
+      <!-- Hidden by default; shown by ui.js only when the File System Access
+           API is available (desktop Chrome/Edge — not Android/iOS). -->
+      <label id="auto-export-wrap" class="hidden items-center gap-2 text-xs text-slate-300 px-2"
+             title="Pick a folder once; every completed cycle is saved there automatically">
+        <input type="checkbox" id="auto-export-toggle" class="rounded accent-emerald-500">
+        Auto-export
+      </label>
     </div>
   </section>
 
