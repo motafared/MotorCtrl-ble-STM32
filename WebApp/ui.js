@@ -1,6 +1,6 @@
 // DOM wiring + chart for a single Board.
 
-export const VERSION = '1.6.0';  // bump with every deploy, same value in all 4 files
+export const VERSION = '1.6.1';  // bump with every deploy, same value in all 4 files
 
 const CHART_WINDOW_MS = 60_000;
 
@@ -147,12 +147,15 @@ export function bindUI(board) {
   });
 
   // ---- Auto-export (desktop Chrome/Edge only — File System Access API).
-  // Android/iOS and other browsers lack showDirectoryPicker, so the control
-  // stays hidden there and only the manual Export CSV button is available.
-  // Not persisted across reloads: the folder handle/permission doesn't
-  // survive a reload anyway, so the toggle always starts unchecked. ----
+  // Feature-detecting showDirectoryPicker alone isn't enough: some Android
+  // Chromium-based browsers (e.g. Kiwi, built from desktop Chromium source)
+  // expose the function even though there's no real folder-picker UI behind
+  // it on that OS, so the toggle appeared but silently failed. Toon asked for
+  // this on Windows/Linux Chrome specifically, so also exclude mobile devices
+  // outright rather than trust the API's presence alone.
   let autoExportDir = null;
-  if ('showDirectoryPicker' in window) {
+  const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if (typeof window.showDirectoryPicker === 'function' && !isMobileUA) {
     els.autoExportWrap.classList.remove('hidden');
     els.autoExportWrap.classList.add('inline-flex');
   }
