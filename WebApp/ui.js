@@ -1,6 +1,6 @@
 // DOM wiring + chart for a single Board.
 
-export const VERSION = '1.3.0';  // bump with every deploy, same value in all 4 files
+export const VERSION = '1.4.0';  // bump with every deploy, same value in all 4 files
 
 const CHART_WINDOW_MS = 60_000;
 
@@ -27,6 +27,7 @@ export function bindUI(board) {
     btnStartTimed: $('btn-start-timed'),
     btnStartCont:  $('btn-start-cont'),
     btnStop:       $('btn-stop'),
+    btnExportCsv:  $('btn-export-csv'),
     chartPause: $('chart-pause'),
     chartClear: $('chart-clear'),
     log: $('log'),
@@ -67,6 +68,8 @@ export function bindUI(board) {
     };
     const seconds = (recorder.samples.length / 10).toFixed(1);
     logLine(els.log, `Cycle recorded: ${recorder.samples.length} samples (${seconds} s) — ready to export`);
+    els.btnExportCsv.disabled = false;
+    els.btnExportCsv.title = '';
   }
 
   function handleCycleTransition(newState) {
@@ -128,6 +131,7 @@ export function bindUI(board) {
   els.btnStartTimed.addEventListener('click', () => board.sendCommand(0x01).catch(err));
   els.btnStartCont.addEventListener('click',  () => board.sendCommand(0x03).catch(err));
   els.btnStop.addEventListener('click',       () => board.sendCommand(0x02).catch(err));
+  els.btnExportCsv.addEventListener('click', () => { if (lastCycle) exportCsv(lastCycle); });
 
   // ---- Chart controls ----
   els.chartPause.addEventListener('click', () => {
@@ -306,6 +310,46 @@ function exportLog() {
   const a = document.createElement('a');
   a.href = url;
   a.download = `motorctrl-log-${stamp}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+// ---- CSV export (Toon spec: rows-only template, semicolon delimiter, decimal
+// comma, metadata repeated in every row) — task 3/5, format fixed for now;
+// locale auto-detect + override comes in task 4. ----
+const CSV_HEADER = [
+  'Board Name', 'Date', 'Time', 'Elapsed Time [s]',
+  'Target Speed M1 [rpm]', 'Actual Speed M1 [rpm]', 'Rotations M1',
+  'Target Speed M2 [rpm]', 'Actual Speed M2 [rpm]', 'Rotations M2',
+];
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+function fmtDateYMD(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function fmtTimeHMS(d) { return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
+function fmtTimeHMSCompact(d) { return `${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`; }
+function sanitizeFilenamePart(s) { return s.replace(/[\\/:*?"<>|]/g, '-'); }
+
+function buildCsv(cycle) {
+  const dateStr = fmtDateYMD(cycle.startDate);
+  const timeStr = fmtTimeHMS(cycle.startDate);
+  const rows = cycle.samples.map((s) => [
+    cycle.boardName, dateStr, timeStr,
+    (s.elapsedMs / 1000).toFixed(1).replace('.', ','),   // decimal comma
+    cycle.settings.tsm1, s.asm1, s.rm1,
+    cycle.settings.tsm2, s.asm2, s.rm2,
+  ].join('; '));
+  return [CSV_HEADER.join('; '), ...rows].join('\r\n') + '\r\n';   // CRLF for Excel
+}
+
+function exportCsv(cycle) {
+  const blob = new Blob([buildCsv(cycle)], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const name = `${sanitizeFilenamePart(cycle.boardName)}_${fmtDateYMD(cycle.startDate)}_${fmtTimeHMSCompact(cycle.startDate)}.csv`;
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
   document.body.appendChild(a);
   a.click();
   a.remove();
