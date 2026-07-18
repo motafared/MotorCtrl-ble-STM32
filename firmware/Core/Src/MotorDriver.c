@@ -20,6 +20,15 @@ void Motor_Init(Motor_t *motor,
     motor->ppr          = ppr;
     motor->min_duty     = min_duty;
 
+    /* IC glitch filter. The capture callback decimates by ppr (see
+     * HAL_TIM_IC_CaptureCallback), so Motor_HandleICInterrupt runs once per
+     * full REVOLUTION and diff always spans one revolution, whatever the ppr.
+     * The shortest legitimate diff is therefore one revolution at
+     * MOTOR_MAX_RPM, in prescaled ticks (prescaler ≈ 1000): 1280 ticks.
+     * Anything shorter is sensor bounce/noise (the old fixed 72 let glitches
+     * up to ~52,600 RPM through). */
+    motor->min_diff_ticks = (TIM_CLOCK / 1000ul) * 60ul / MOTOR_MAX_RPM;
+
     motor->last_capture = 0;
     motor->period_ticks = 0;
     motor->pulses_count = 0;
@@ -80,7 +89,7 @@ void Motor_HandleICInterrupt(Motor_t *motor)
                     (capture - motor->last_capture) :
                     ((motor->ic_tim->Instance->ARR - motor->last_capture) + capture);
 
-    if (diff > 72)
+    if (diff > motor->min_diff_ticks)
     {
         diff *= 1000; /* scale back to base-clock ticks (prescaler = 999 ≈ 1000) */
         motor->last_capture = capture;
@@ -91,8 +100,8 @@ void Motor_HandleICInterrupt(Motor_t *motor)
             float freq        = (float)TIM_CLOCK / (float)diff;
             motor->speed_rpm  = (uint16_t)(freq * 60.0f);
         }
+        motor->pulses_count++;   /* only real edges count toward rotations */
     }
-    motor->pulses_count++;
 }
 
 void Motor_UpdatePID(Motor_t *motor, float dt_sec)

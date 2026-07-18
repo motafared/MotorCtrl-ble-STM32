@@ -22,6 +22,13 @@
  * Lower it for faster stop detection; raise it to support slower speeds. */
 #define SPEED_TIMEOUT_TICKS 20u
 
+/* Glitch filter for the tacho input capture. Any capture implying a speed
+ * above this RPM is physically impossible (sensor bounce / noise) and is
+ * ignored. The capture callback decimates by ppr, so the measured interval is
+ * always one full revolution and the tick threshold (computed in Motor_Init)
+ * is PPR-independent. Keep comfortably above the real motor max (~1500 RPM). */
+#define MOTOR_MAX_RPM 3000u
+
 typedef struct {
     float Kp;
     float Ki;
@@ -41,6 +48,8 @@ typedef struct {
     uint32_t period_ticks;
     uint32_t pulses_count;   /* counts completed revolutions (incremented every ppr pulses) */
     uint32_t ppr;            /* pulses per revolution */
+    uint32_t min_diff_ticks; /* IC glitch filter: reject captures closer than
+                                this (prescaled ticks); one rev at MOTOR_MAX_RPM */
 
     uint16_t speed_rpm;
     uint16_t setpoint_rpm;
