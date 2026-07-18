@@ -1,6 +1,6 @@
 // DOM wiring + chart for a single Board.
 
-export const VERSION = '1.2.1';  // bump with every deploy, same value in all 4 files
+export const VERSION = '1.3.0';  // bump with every deploy, same value in all 4 files
 
 const CHART_WINDOW_MS = 60_000;
 
@@ -36,6 +36,46 @@ export function bindUI(board) {
 
   const chart = makeChart($('chart'));
   let paused = false;
+
+  // ---- Per-cycle recorder (CSV export task 2/5) ----
+  // Buffers one row per telemetry tick (~100 ms, driven by the asm1
+  // notification) from cycle start to end. Only the most recently completed
+  // cycle is kept, per Toon's spec ("available until the next cycle
+  // completes") — no export UI yet, this task just proves recording works.
+  let recState = 'idle';   // tracked locally so the frequent 'state' event
+                            // (fires every heartbeat, not just on change)
+                            // only triggers start/stop on a REAL transition
+  const recorder = { active: false, t0: null, startDate: null, settings: null, samples: [] };
+  let lastCycle = null;
+
+  function startRecording() {
+    recorder.active = true;
+    recorder.t0 = Date.now();
+    recorder.startDate = new Date(recorder.t0);
+    recorder.settings = { tsm1: board.values.tsm1, tsm2: board.values.tsm2, ct: board.values.ct };
+    recorder.samples = [];
+  }
+
+  function stopRecording() {
+    if (!recorder.active) return;
+    recorder.active = false;
+    lastCycle = {
+      boardName: boardNameEl.value,
+      startDate: recorder.startDate,
+      settings: recorder.settings,
+      samples: recorder.samples,
+    };
+    const seconds = (recorder.samples.length / 10).toFixed(1);
+    logLine(els.log, `Cycle recorded: ${recorder.samples.length} samples (${seconds} s) — ready to export`);
+  }
+
+  function handleCycleTransition(newState) {
+    const wasRunning = recState !== 'idle';
+    const isRunning = newState !== 'idle';
+    if (!wasRunning && isRunning) startRecording();
+    else if (wasRunning && !isRunning) stopRecording();
+    recState = newState;
+  }
 
   // ---- Board name (Option A: dashboard-stored; labels CSV exports) ----
   const boardNameEl = $('board-name');
@@ -136,6 +176,11 @@ export function bindUI(board) {
     setStatus(els.status, 'disconnected');
     els.btnConnect.textContent = 'Connect';
     applyState(els, 'idle', false);
+    if (recorder.active) {
+      recorder.active = false;
+      logLine(els.log, 'Cycle recording discarded: disconnected mid-cycle');
+    }
+    recState = 'idle';
   });
   board.addEventListener('hydrated', (ev) => {
     const v = ev.detail;
@@ -149,7 +194,10 @@ export function bindUI(board) {
     els.et.textContent   = fmtTime(v.et);
     setTargetLines(chart, v.tsm1, v.tsm2);
   });
-  board.addEventListener('state', (ev) => applyState(els, ev.detail, board.connected));
+  board.addEventListener('state', (ev) => {
+    applyState(els, ev.detail, board.connected);
+    handleCycleTransition(ev.detail);
+  });
   board.addEventListener('log', (ev) => logLine(els.log, ev.detail));
 
   board.addEventListener('telemetry', (ev) => {
@@ -159,6 +207,16 @@ export function bindUI(board) {
       case 'asm1':
         els.asm1.textContent = value;
         if (!paused) pushPoint(chart, 0, now, value);
+        // asm1 arrives once per telemetry tick (~100 ms), so use it as the
+        // per-row tick for the cycle recorder too — board.values already
+        // holds the latest asm2/rm1/rm2 from their own notifications.
+        if (recorder.active) {
+          recorder.samples.push({
+            elapsedMs: now - recorder.t0,
+            asm1: value, asm2: board.values.asm2,
+            rm1: board.values.rm1, rm2: board.values.rm2,
+          });
+        }
         break;
       case 'asm2':
         els.asm2.textContent = value;
