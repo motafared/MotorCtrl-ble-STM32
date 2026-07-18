@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-version="1.1.0">
+<html lang="en" data-version="1.2.0">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -28,7 +28,9 @@
   <!-- Board card -->
   <section class="rounded-xl bg-slate-800 border border-slate-700 shadow p-4 space-y-4">
     <div class="flex items-center gap-3">
-      <h2 class="font-semibold">Board 1</h2>
+      <!-- Editable board name (Option A: stored in the dashboard, labels CSV exports) -->
+      <input id="board-name" type="text" maxlength="32" title="Board name — used in CSV exports"
+             class="font-semibold bg-transparent border border-transparent hover:border-slate-600 focus:border-sky-500 focus:bg-slate-900/60 rounded px-1 py-0.5 w-40 outline-none" />
       <span id="state-chip" class="px-2.5 py-0.5 text-xs rounded-full bg-slate-700 text-slate-300">Idle</span>
     </div>
 

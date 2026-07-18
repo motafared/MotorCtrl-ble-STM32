@@ -1,8 +1,15 @@
 // DOM wiring + chart for a single Board.
 
-export const VERSION = '1.1.0';  // bump with every deploy, same value in all 4 files
+export const VERSION = '1.2.0';  // bump with every deploy, same value in all 4 files
 
 const CHART_WINDOW_MS = 60_000;
+
+const BOARD_NAME_KEY = 'mc_boardName';
+const DEFAULT_BOARD_NAME = 'Board One';
+
+function getBoardName() {
+  return (localStorage.getItem(BOARD_NAME_KEY) || '').trim() || DEFAULT_BOARD_NAME;
+}
 
 export function bindUI(board) {
   const $ = (id) => document.getElementById(id);
@@ -29,6 +36,16 @@ export function bindUI(board) {
 
   const chart = makeChart($('chart'));
   let paused = false;
+
+  // ---- Board name (Option A: dashboard-stored; labels CSV exports) ----
+  const boardNameEl = $('board-name');
+  boardNameEl.value = getBoardName();
+  boardNameEl.addEventListener('change', () => {
+    const name = boardNameEl.value.trim() || DEFAULT_BOARD_NAME;
+    boardNameEl.value = name;
+    localStorage.setItem(BOARD_NAME_KEY, name);
+    logLine(els.log, `Board name → ${name}`);
+  });
 
   // ---- Connection button ----
   els.btnConnect.addEventListener('click', async () => {
