@@ -1,6 +1,6 @@
 // DOM wiring + chart for a single Board.
 
-export const VERSION = '1.4.0';  // bump with every deploy, same value in all 4 files
+export const VERSION = '1.5.0';  // bump with every deploy, same value in all 4 files
 
 const CHART_WINDOW_MS = 60_000;
 
@@ -28,6 +28,7 @@ export function bindUI(board) {
     btnStartCont:  $('btn-start-cont'),
     btnStop:       $('btn-stop'),
     btnExportCsv:  $('btn-export-csv'),
+    csvFormat:     $('csv-format'),
     chartPause: $('chart-pause'),
     chartClear: $('chart-clear'),
     log: $('log'),
@@ -131,7 +132,16 @@ export function bindUI(board) {
   els.btnStartTimed.addEventListener('click', () => board.sendCommand(0x01).catch(err));
   els.btnStartCont.addEventListener('click',  () => board.sendCommand(0x03).catch(err));
   els.btnStop.addEventListener('click',       () => board.sendCommand(0x02).catch(err));
-  els.btnExportCsv.addEventListener('click', () => { if (lastCycle) exportCsv(lastCycle); });
+  els.btnExportCsv.addEventListener('click', () => {
+    if (lastCycle) exportCsv(lastCycle, resolveCsvFormat(els.csvFormat.value));
+  });
+
+  // ---- CSV decimal/delimiter format (Toon: comma-decimal NL default, but
+  // automate it from the browser's language, with a manual override) ----
+  els.csvFormat.value = localStorage.getItem(CSV_FORMAT_KEY) || 'auto';
+  els.csvFormat.addEventListener('change', () => {
+    localStorage.setItem(CSV_FORMAT_KEY, els.csvFormat.value);
+  });
 
   // ---- Chart controls ----
   els.chartPause.addEventListener('click', () => {
@@ -316,14 +326,30 @@ function exportLog() {
   URL.revokeObjectURL(url);
 }
 
-// ---- CSV export (Toon spec: rows-only template, semicolon delimiter, decimal
-// comma, metadata repeated in every row) — task 3/5, format fixed for now;
-// locale auto-detect + override comes in task 4. ----
+// ---- CSV export (Toon spec: rows-only template, metadata repeated in every
+// row). Decimal/delimiter is either detected from the browser's language or
+// forced by the dashboard's format select (task 4/5). ----
 const CSV_HEADER = [
   'Board Name', 'Date', 'Time', 'Elapsed Time [s]',
   'Target Speed M1 [rpm]', 'Actual Speed M1 [rpm]', 'Rotations M1',
   'Target Speed M2 [rpm]', 'Actual Speed M2 [rpm]', 'Rotations M2',
 ];
+const CSV_FORMAT_KEY = 'mc_csvFormat';   // 'auto' | 'comma' | 'dot'
+
+// Dutch/European locales use a decimal comma, so the delimiter must move to
+// semicolon to avoid ambiguity; English-style locales use a decimal dot with
+// a comma delimiter (ordinary CSV). Detected via Intl, same mechanism Excel
+// itself uses to guess a file's format.
+function detectDecimalStyle() {
+  const dec = new Intl.NumberFormat(navigator.language).formatToParts(1.1)
+    .find((p) => p.type === 'decimal');
+  return dec && dec.value === ',' ? 'comma' : 'dot';
+}
+
+function resolveCsvFormat(pref) {
+  const style = (pref === 'comma' || pref === 'dot') ? pref : detectDecimalStyle();
+  return style === 'comma' ? { decimal: ',', delimiter: '; ' } : { decimal: '.', delimiter: ', ' };
+}
 
 function pad2(n) { return String(n).padStart(2, '0'); }
 function fmtDateYMD(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
@@ -331,20 +357,20 @@ function fmtTimeHMS(d) { return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:$
 function fmtTimeHMSCompact(d) { return `${pad2(d.getHours())}${pad2(d.getMinutes())}${pad2(d.getSeconds())}`; }
 function sanitizeFilenamePart(s) { return s.replace(/[\\/:*?"<>|]/g, '-'); }
 
-function buildCsv(cycle) {
+function buildCsv(cycle, format) {
   const dateStr = fmtDateYMD(cycle.startDate);
   const timeStr = fmtTimeHMS(cycle.startDate);
   const rows = cycle.samples.map((s) => [
     cycle.boardName, dateStr, timeStr,
-    (s.elapsedMs / 1000).toFixed(1).replace('.', ','),   // decimal comma
+    (s.elapsedMs / 1000).toFixed(1).replace('.', format.decimal),
     cycle.settings.tsm1, s.asm1, s.rm1,
     cycle.settings.tsm2, s.asm2, s.rm2,
-  ].join('; '));
-  return [CSV_HEADER.join('; '), ...rows].join('\r\n') + '\r\n';   // CRLF for Excel
+  ].join(format.delimiter));
+  return [CSV_HEADER.join(format.delimiter), ...rows].join('\r\n') + '\r\n';   // CRLF for Excel
 }
 
-function exportCsv(cycle) {
-  const blob = new Blob([buildCsv(cycle)], { type: 'text/csv' });
+function exportCsv(cycle, format) {
+  const blob = new Blob([buildCsv(cycle, format)], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const name = `${sanitizeFilenamePart(cycle.boardName)}_${fmtDateYMD(cycle.startDate)}_${fmtTimeHMSCompact(cycle.startDate)}.csv`;
   const a = document.createElement('a');

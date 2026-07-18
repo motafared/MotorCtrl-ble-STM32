@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-version="1.4.0">
+<html lang="en" data-version="1.5.0">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -101,6 +101,12 @@
               class="px-4 py-2 text-sm rounded-md bg-slate-700 hover:enabled:bg-slate-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed">
         Export CSV
       </button>
+      <select id="csv-format" title="CSV decimal/delimiter format"
+              class="px-2 py-2 text-sm rounded-md bg-slate-700 border border-slate-600">
+        <option value="auto">Auto (browser language)</option>
+        <option value="comma">1,5  ·  ; delimiter</option>
+        <option value="dot">1.5  ·  , delimiter</option>
+      </select>
     </div>
   </section>
 
