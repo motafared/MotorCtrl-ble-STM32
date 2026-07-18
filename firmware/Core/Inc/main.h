@@ -104,9 +104,9 @@ void Error_Handler(void);
 #define MOTOR_MODE      MODE_KHALED   /* <<< switch here */
 
 #if   MOTOR_MODE == MODE_KHALED
-  #define MOTOR_PPR       1
+  #define MOTOR_PPR       2
   #define MOTOR_PWM_POL   TIM_OCPOLARITY_HIGH
-  #define MOTOR_MIN_DUTY  0.0f
+  #define MOTOR_MIN_DUTY  20.0f
 #elif MOTOR_MODE == MODE_TOON
   #define MOTOR_PPR       6
   #define MOTOR_PWM_POL   TIM_OCPOLARITY_LOW
