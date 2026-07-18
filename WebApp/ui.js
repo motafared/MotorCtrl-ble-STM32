@@ -1,6 +1,6 @@
 // DOM wiring + chart for a single Board.
 
-export const VERSION = '1.2.0';  // bump with every deploy, same value in all 4 files
+export const VERSION = '1.2.1';  // bump with every deploy, same value in all 4 files
 
 const CHART_WINDOW_MS = 60_000;
 
@@ -45,6 +45,7 @@ export function bindUI(board) {
     boardNameEl.value = name;
     localStorage.setItem(BOARD_NAME_KEY, name);
     logLine(els.log, `Board name → ${name}`);
+    if (board.connected) setStatus(els.status, 'connected', name);
   });
 
   // ---- Connection button ----
@@ -123,7 +124,11 @@ export function bindUI(board) {
 
   // ---- Board events ----
   board.addEventListener('connected', (ev) => {
-    setStatus(els.status, 'connected', ev.detail);
+    // Status pill shows the dashboard's custom board name (consistent with the
+    // card title), not the raw BLE device name — but the real BLE name is still
+    // useful for debugging, so keep it in the log.
+    setStatus(els.status, 'connected', boardNameEl.value);
+    logLine(els.log, `BLE device name: ${ev.detail}`);
     els.btnConnect.textContent = 'Disconnect';
     applyState(els, board.state, true);
   });
