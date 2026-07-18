@@ -1,5 +1,7 @@
 // DOM wiring + chart for a single Board.
 
+export const VERSION = '1.1.0';  // bump with every deploy, same value in all 4 files
+
 const CHART_WINDOW_MS = 60_000;
 
 export function bindUI(board) {

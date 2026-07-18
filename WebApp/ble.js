@@ -1,6 +1,8 @@
 // BLE adapter for MotorCtrl (STM32WB55) — one Board instance per device.
 // Custom 16-bit UUIDs are promoted to the Bluetooth Base UUID form.
 
+export const VERSION = '1.1.0';  // bump with every deploy, same value in all 4 files
+
 const CTRL_SERVICE = '00000001-0000-1000-8000-00805f9b34fb';
 const TELE_SERVICE = '00000010-0000-1000-8000-00805f9b34fb';
 
